@@ -1,0 +1,251 @@
+/* src/index.css - DeshiMart BD Global Stylesheet */
+:root {
+  /* Color Palette */
+  --primary: #F85606;
+  --primary-hover: #EA580C;
+  --primary-light: #fff2ee;
+  --primary-glow: rgba(248, 86, 6, 0.25);
+  
+  --secondary: #0f172a;
+  --secondary-light: #1e293b;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
+  
+  --bg-page: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --border-color: #e2e8f0;
+  --border-focus: #F85606;
+  
+  --accent-green: #059669;
+  --accent-green-bg: #ecfdf5;
+  --accent-amber: #d97706;
+  --accent-amber-bg: #fffbeb;
+  --accent-blue: #2563eb;
+  --accent-blue-bg: #eff6ff;
+  --whatsapp-color: #25D366;
+  --whatsapp-hover: #1ebd5b;
+  
+  /* Typography */
+  --font-bengali: 'Hind Siliguri', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-latin: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  /* Radii & Shadows */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-hover: 0 14px 25px -4px rgba(248, 86, 6, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-bengali);
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Latin numeral clarity */
+.num, .price, .counter-digits {
+  font-family: var(--font-latin), var(--font-bengali);
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  outline: none;
+}
+
+input, select, textarea {
+  font-family: inherit;
+}
+
+/* Scroll containment for modern dialogs */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+/* Container */
+.container {
+  width: 100%;
+  max-width: 1240px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+/* Section Header Utility */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Animations */
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.03); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+/* Custom modern scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* =========================================================
+   CHECKOUT MODAL DIRECT GUARANTEED STYLES (HOTFIX)
+   ========================================================= */
+.checkout-modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(15, 23, 42, 0.7) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+}
+
+.checkout-modal-box {
+  max-width: 520px !important;
+  width: 100% !important;
+  max-height: 92vh !important;
+  overflow-y: auto !important;
+  background: #ffffff !important;
+  border-radius: 16px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  padding: 24px !important;
+  position: relative !important;
+}
+
+.product-summary-card {
+  background: #F8FAFC !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+  display: flex !important;
+  gap: 14px !important;
+  align-items: center !important;
+}
+
+/* FIX: Image strictly 76px x 76px */
+.product-summary-card img {
+  width: 76px !important;
+  height: 76px !important;
+  min-width: 76px !important;
+  max-width: 76px !important;
+  min-height: 76px !important;
+  max-height: 76px !important;
+  object-fit: cover !important;
+  border-radius: 8px !important;
+  flex-shrink: 0 !important;
+  display: block !important;
+}
+
+/* Inputs & Labels */
+.checkout-modal-box label {
+  display: block !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  color: #1E293B !important;
+  margin-bottom: 6px !important;
+}
+
+.checkout-modal-box input[type="text"],
+.checkout-modal-box input[type="tel"],
+.checkout-modal-box textarea {
+  width: 100% !important;
+  padding: 12px 14px !important;
+  border: 1.5px solid #CBD5E1 !important;
+  border-radius: 10px !important;
+  font-size: 15px !important;
+  outline: none !important;
+  background: #ffffff !important;
+  color: #0F172A !important;
+  box-sizing: border-box !important;
+  transition: all 0.15s ease !important;
+}
+
+.checkout-modal-box input[type="text"]:focus,
+.checkout-modal-box input[type="tel"]:focus,
+.checkout-modal-box textarea:focus {
+  border-color: #F85606 !important;
+  box-shadow: 0 0 0 3px rgba(248, 86, 6, 0.15) !important;
+}
+
+/* Delivery area grid */
+.delivery-cards-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 10px !important;
+}
+
+/* Order bill summary */
+.order-bill-summary {
+  background: #F8FAFC !important;
+  padding: 14px !important;
+  border-radius: 10px !important;
+  margin: 16px 0 !important;
+  border: 1px solid #E2E8F0 !important;
+}
