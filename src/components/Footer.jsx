@@ -2,7 +2,7 @@
 import React from 'react';
 import { siteConfig } from '../config/siteConfig';
 
-export default function Footer({ onOpenTracking, onOpenAdmin }) {
+export default function Footer() {
   return (
     <footer className="main-footer">
       
@@ -64,8 +64,6 @@ export default function Footer({ onOpenTracking, onOpenAdmin }) {
             <ul className="footer-links">
               <li><a href="#flash-sale-section">⚡ ফ্ল্যাশ সেল অফার</a></li>
               <li><a href="#product-catalog-section">🛍️ সকল পণ্য সম্ভার</a></li>
-              <li><button type="button" className="footer-btn-link" onClick={onOpenTracking}>📦 অর্ডার ট্র্যাক করুন</button></li>
-              <li><button type="button" className="footer-btn-link" onClick={onOpenAdmin}>🛠️ স্টোর এডমিন ড্যাশবোর্ড</button></li>
               <li><a href={`https://wa.me/${siteConfig.whatsappNumber}`} target="_blank" rel="noopener noreferrer">💬 সরাসরি হোয়াটসঅ্যাপ চ্যাট</a></li>
             </ul>
           </div>

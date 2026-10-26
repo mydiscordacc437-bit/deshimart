@@ -5,7 +5,6 @@ import { siteConfig } from '../config/siteConfig';
 export default function MobileNav({ 
   cartCount, 
   onOpenCart, 
-  onOpenTracking, 
   onToggleCategories 
 }) {
   return (
@@ -40,15 +39,6 @@ export default function MobileNav({
           )}
         </div>
         <span className="nav-text">কার্ট</span>
-      </button>
-
-      <button 
-        type="button" 
-        className="mobile-nav-item"
-        onClick={onOpenTracking}
-      >
-        <span className="nav-icon">📦</span>
-        <span className="nav-text">ট্র্যাক</span>
       </button>
 
       <a 

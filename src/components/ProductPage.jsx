@@ -372,12 +372,7 @@ export default function ProductPage({
               <span className="text-slate-800 font-medium truncate max-w-[180px] sm:max-w-sm">{product.title}</span>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                onClick={onOpenTracking}
-                className="text-slate-600 hover:text-orange-600 font-medium hidden sm:inline-block cursor-pointer"
-              >
-                🔍 অর্ডার ট্র্যাকিং
-              </button>
+              
             </div>
           </div>
         </div>

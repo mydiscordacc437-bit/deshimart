@@ -6,11 +6,10 @@
  *   1. Full E-Commerce Storefront: /
  *   2. Dedicated Daraz-Style Single Product Page: /product/:slug
  *   3. Distraction-Free Facebook/Instagram Ad Landing Funnel: /offer/:slug
- *   4. Instant Live B-Bazar Product Sync & Admin Pricing Engine
+ *   4. Secure Dedicated Admin Panel Route: /admin
  */
 
 import React, { useState, useEffect } from 'react';
-import { siteConfig } from './config/siteConfig';
 import { categories, products as initialProducts, getProductBySlug } from './data/products';
 
 import TopBar from './components/TopBar';
@@ -25,11 +24,9 @@ import ProductPage from './components/ProductPage';
 import CheckoutPage from './components/CheckoutPage';
 import ThankYouPage from './components/ThankYouPage';
 import CheckoutModal from './components/CheckoutModal';
-import TrackingModal from './components/TrackingModal';
 import CartDrawer from './components/CartDrawer';
 import ProductDetailModal from './components/ProductDetailModal';
 import AdminModal from './components/AdminModal';
-import SocialProofToast from './components/SocialProofToast';
 import MobileNav from './components/MobileNav';
 import MobileCategoryDrawer from './components/MobileCategoryDrawer';
 import Toast from './components/Toast';
@@ -107,7 +104,6 @@ export default function App() {
       if (savedCustom) {
         const custom = JSON.parse(savedCustom);
         if (Array.isArray(custom) && custom.length > 0) {
-          // Merge custom items with initial
           const merged = [...custom, ...initialProducts.filter(ip => !custom.some(cp => cp.id === ip.id))];
           return merged;
         }
@@ -176,9 +172,6 @@ export default function App() {
   // Modals state
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [selectedProductForOrder, setSelectedProductForOrder] = useState(null);
-
-  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   
   // Rich Product Detail Modal State
@@ -186,7 +179,7 @@ export default function App() {
   const [detailProduct, setDetailProduct] = useState(productsList[1] || productsList[0]);
 
   const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
-  const [socialProofEnabled, setSocialProofEnabled] = useState(true);
+  const [socialProofEnabled, setSocialProofEnabled] = useState(false);
 
   // Live Orders State (stored and synced)
   const [orders, setOrders] = useState(() => {
@@ -346,7 +339,6 @@ export default function App() {
     setPixelConfig(newConfig);
   };
 
-
   // Toast
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
@@ -431,7 +423,7 @@ export default function App() {
     showToast(`অর্ডার #${newOrder.orderId} সফলভাবে সম্পন্ন হয়েছে!`);
   };
 
-  // Admin updates order status (Live Sync with Order Tracker)
+  // Admin updates order status
   const handleUpdateOrderStatus = (orderId, newStep) => {
     setOrders(prev => prev.map(o => {
       if (o.orderId === orderId) {
@@ -479,15 +471,52 @@ export default function App() {
 
   // =========================================================================
   // ROUTING DISPATCH:
-  // Universal 3-Step Meta Ads Funnel Routes:
+  //   0. /admin (Dedicated Secure Admin Panel Route)
   //   1. /offer/:slug & /product/:slug (Ad Landing Page)
   //   2. /checkout/:slug (Dedicated Checkout Page)
   //   3. /thank-you/:slug/:orderId (Dedicated Thank You & Purchase Confirmation)
   // =========================================================================
+  const isAdminRoute = currentPath === '/admin' || currentPath.startsWith('/admin/');
   const isCheckoutRoute = currentPath.startsWith('/checkout/');
   const isThankYouRoute = currentPath.startsWith('/thank-you/');
   const isProductRoute = currentPath.startsWith('/product/');
   const isOfferRoute = currentPath.startsWith('/offer/');
+
+  // ROUTE 0: Dedicated Secure Admin Page (/admin)
+  if (isAdminRoute) {
+    return (
+      <div className="app-layout font-sans min-h-screen bg-slate-950">
+        <AdminModal
+          isOpen={true}
+          onClose={() => navigateTo('/')}
+          orders={orders}
+          onUpdateOrderStatus={handleUpdateOrderStatus}
+          onUpdateCourierInfo={handleUpdateCourierInfo}
+          socialProofEnabled={socialProofEnabled}
+          onToggleSocialProof={setSocialProofEnabled}
+          allProducts={productsList}
+          onUpdateProducts={handleUpdateProducts}
+          onNavigateToProduct={(p) => navigateTo(`/product/${p.slug || p.id}`)}
+          showToast={showToast}
+          abandonedLeads={abandonedLeads}
+          onConvertLeadToOrder={handleConvertLeadToOrder}
+          onDeleteLead={handleDeleteLead}
+          pixelConfig={pixelConfig}
+          onUpdatePixelConfig={handleUpdatePixelConfig}
+        />
+
+        {/* Visual Meta & TikTok Pixel Event Debugger Toast */}
+        <PixelDebuggerToast isEnabled={pixelConfig?.isDebuggerActive} />
+
+        {/* Global Toast Alert */}
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ message: '', type: 'success' })}
+        />
+      </div>
+    );
+  }
 
   // ROUTE 2: Dedicated Product Order / Checkout Page (/checkout/:slug)
   if (isCheckoutRoute) {
@@ -504,33 +533,6 @@ export default function App() {
           onCheckDuplicateOrder={handleCheckDuplicateOrder}
           onNavigateTo={navigateTo}
           onBackToHome={() => navigateTo('/')}
-        />
-
-        {/* Order Tracking Modal */}
-        <TrackingModal
-          isOpen={isTrackingModalOpen}
-          onClose={() => setIsTrackingModalOpen(false)}
-          orders={orders}
-        />
-
-        {/* Store Admin Dashboard Modal */}
-        <AdminModal
-          isOpen={isAdminModalOpen}
-          onClose={() => setIsAdminModalOpen(false)}
-          orders={orders}
-          onUpdateOrderStatus={handleUpdateOrderStatus}
-          onUpdateCourierInfo={handleUpdateCourierInfo}
-          socialProofEnabled={socialProofEnabled}
-          onToggleSocialProof={setSocialProofEnabled}
-          allProducts={productsList}
-          onUpdateProducts={handleUpdateProducts}
-          onNavigateToProduct={(p) => navigateTo(`/product/${p.slug || p.id}`)}
-          showToast={showToast}
-          abandonedLeads={abandonedLeads}
-          onConvertLeadToOrder={handleConvertLeadToOrder}
-          onDeleteLead={handleDeleteLead}
-          pixelConfig={pixelConfig}
-          onUpdatePixelConfig={handleUpdatePixelConfig}
         />
 
         {/* Visual Meta & TikTok Pixel Event Debugger Toast */}
@@ -562,36 +564,8 @@ export default function App() {
           orders={orders}
           allProducts={productsList}
           onAddUpsellToOrder={handleAddUpsellToOrder}
-          onOpenTracking={() => setIsTrackingModalOpen(true)}
           onBackToHome={() => navigateTo('/')}
           showToast={showToast}
-        />
-
-        {/* Order Tracking Modal */}
-        <TrackingModal
-          isOpen={isTrackingModalOpen}
-          onClose={() => setIsTrackingModalOpen(false)}
-          orders={orders}
-        />
-
-        {/* Store Admin Dashboard Modal */}
-        <AdminModal
-          isOpen={isAdminModalOpen}
-          onClose={() => setIsAdminModalOpen(false)}
-          orders={orders}
-          onUpdateOrderStatus={handleUpdateOrderStatus}
-          onUpdateCourierInfo={handleUpdateCourierInfo}
-          socialProofEnabled={socialProofEnabled}
-          onToggleSocialProof={setSocialProofEnabled}
-          allProducts={productsList}
-          onUpdateProducts={handleUpdateProducts}
-          onNavigateToProduct={(p) => navigateTo(`/product/${p.slug || p.id}`)}
-          showToast={showToast}
-          abandonedLeads={abandonedLeads}
-          onConvertLeadToOrder={handleConvertLeadToOrder}
-          onDeleteLead={handleDeleteLead}
-          pixelConfig={pixelConfig}
-          onUpdatePixelConfig={handleUpdatePixelConfig}
         />
 
         {/* Visual Meta & TikTok Pixel Event Debugger Toast */}
@@ -623,10 +597,7 @@ export default function App() {
         
         {/* Render TopBar if standard product page mode */}
         {!isOfferRoute && (
-          <TopBar 
-            onOpenTracking={() => setIsTrackingModalOpen(true)}
-            onOpenAdmin={() => setIsAdminModalOpen(true)}
-          />
+          <TopBar />
         )}
 
         {/* Dedicated Single-Product Ad Landing Page with Embedded Checkout */}
@@ -636,7 +607,6 @@ export default function App() {
           onBackToHome={() => navigateTo('/')}
           onOrderSuccess={handleOrderSuccess}
           onAddToCart={handleAddToCart}
-          onOpenTracking={() => setIsTrackingModalOpen(true)}
           cartCount={totalCartCount}
           onSaveDraftLead={handleSaveDraftLead}
           onCleanupDraftLead={handleCleanupDraftLead}
@@ -646,41 +616,8 @@ export default function App() {
 
         {/* Standard Footer if standard product mode */}
         {!isOfferRoute && (
-          <Footer 
-            onOpenTracking={() => setIsTrackingModalOpen(true)} 
-            onOpenAdmin={() => setIsAdminModalOpen(true)}
-          />
+          <Footer />
         )}
-
-        {/* Order Tracking Modal */}
-        <TrackingModal
-          isOpen={isTrackingModalOpen}
-          onClose={() => setIsTrackingModalOpen(false)}
-          orders={orders}
-        />
-
-        {/* Store Admin Dashboard Modal */}
-        <AdminModal
-          isOpen={isAdminModalOpen}
-          onClose={() => setIsAdminModalOpen(false)}
-          orders={orders}
-          onUpdateOrderStatus={handleUpdateOrderStatus}
-          onUpdateCourierInfo={handleUpdateCourierInfo}
-          socialProofEnabled={socialProofEnabled}
-          onToggleSocialProof={setSocialProofEnabled}
-          allProducts={productsList}
-          onUpdateProducts={handleUpdateProducts}
-          onNavigateToProduct={(p) => navigateTo(`/product/${p.slug || p.id}`)}
-          showToast={showToast}
-          abandonedLeads={abandonedLeads}
-          onConvertLeadToOrder={handleConvertLeadToOrder}
-          onDeleteLead={handleDeleteLead}
-          pixelConfig={pixelConfig}
-          onUpdatePixelConfig={handleUpdatePixelConfig}
-        />
-
-        {/* Social Proof Toast Popup */}
-        <SocialProofToast isEnabled={socialProofEnabled} />
 
         {/* Visual Meta & TikTok Pixel Event Debugger Toast */}
         <PixelDebuggerToast isEnabled={pixelConfig?.isDebuggerActive} />
@@ -702,13 +639,10 @@ export default function App() {
   return (
     <div className="app-layout">
       
-      {/* 1. Top Bar per wireframe + Admin trigger */}
-      <TopBar 
-        onOpenTracking={() => setIsTrackingModalOpen(true)}
-        onOpenAdmin={() => setIsAdminModalOpen(true)}
-      />
+      {/* 1. Top Bar */}
+      <TopBar />
 
-      {/* 2. Main Header per wireframe */}
+      {/* 2. Main Header */}
       <Header
         cartCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
@@ -725,7 +659,7 @@ export default function App() {
       {/* Main Content Area */}
       <main className="main-content">
         
-        {/* 3. Hero Section (Categories | Mega Dhamaka Banner | Today's Deal + Trust Card) */}
+        {/* 3. Hero Section */}
         <HeroSection
           categories={categories}
           activeCategory={activeCategory}
@@ -737,10 +671,10 @@ export default function App() {
           onViewProduct={handleViewProduct}
         />
 
-        {/* 4. Trust Badges Strip per wireframe */}
+        {/* 4. Trust Badges Strip */}
         <TrustBadges />
 
-        {/* 5. Flash Sale with Live Timer & Wireframe Cards */}
+        {/* 5. Flash Sale with Live Timer */}
         <FlashSale
           products={productsList}
           onOrderProduct={handleOpenOrderModal}
@@ -771,16 +705,12 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <Footer 
-        onOpenTracking={() => setIsTrackingModalOpen(true)} 
-        onOpenAdmin={() => setIsAdminModalOpen(true)}
-      />
+      <Footer />
 
       {/* Mobile Bottom Navigation */}
       <MobileNav
         cartCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
-        onOpenTracking={() => setIsTrackingModalOpen(true)}
         onToggleCategories={() => setIsMobileCategoryOpen(true)}
       />
 
@@ -826,41 +756,10 @@ export default function App() {
         product={selectedProductForOrder}
         onClose={() => setIsOrderModalOpen(false)}
         onOrderSuccess={handleOrderSuccess}
-        onOpenTracking={() => setIsTrackingModalOpen(true)}
         onSaveDraftLead={handleSaveDraftLead}
         onCleanupDraftLead={handleCleanupDraftLead}
         onCheckDuplicateOrder={handleCheckDuplicateOrder}
       />
-
-      {/* Order Tracking Modal (Live Synced with Admin!) */}
-      <TrackingModal
-        isOpen={isTrackingModalOpen}
-        onClose={() => setIsTrackingModalOpen(false)}
-        orders={orders}
-      />
-
-      {/* Store Admin Dashboard Modal */}
-      <AdminModal
-        isOpen={isAdminModalOpen}
-        onClose={() => setIsAdminModalOpen(false)}
-        orders={orders}
-        onUpdateOrderStatus={handleUpdateOrderStatus}
-        onUpdateCourierInfo={handleUpdateCourierInfo}
-        socialProofEnabled={socialProofEnabled}
-        onToggleSocialProof={setSocialProofEnabled}
-        allProducts={productsList}
-        onUpdateProducts={handleUpdateProducts}
-        onNavigateToProduct={(p) => navigateTo(`/product/${p.slug || p.id}`)}
-        showToast={showToast}
-        abandonedLeads={abandonedLeads}
-        onConvertLeadToOrder={handleConvertLeadToOrder}
-        onDeleteLead={handleDeleteLead}
-        pixelConfig={pixelConfig}
-        onUpdatePixelConfig={handleUpdatePixelConfig}
-      />
-
-      {/* Social Proof Toast Popup (Every 25s for 4s) */}
-      <SocialProofToast isEnabled={socialProofEnabled} />
 
       {/* Visual Meta & TikTok Pixel Event Debugger Toast */}
       <PixelDebuggerToast isEnabled={pixelConfig?.isDebuggerActive} />

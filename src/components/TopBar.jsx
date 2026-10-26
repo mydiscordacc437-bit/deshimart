@@ -2,7 +2,7 @@
 import React from 'react';
 import { siteConfig } from '../config/siteConfig';
 
-export default function TopBar({ onOpenTracking, onOpenAdmin }) {
+export default function TopBar() {
   return (
     <div className="top-bar">
       <div className="container top-bar-container">
@@ -25,30 +25,6 @@ export default function TopBar({ onOpenTracking, onOpenAdmin }) {
         </div>
 
         <div className="top-bar-right">
-          <button 
-            type="button" 
-            className="top-bar-btn track-btn"
-            onClick={onOpenTracking}
-            title="আপনার অর্ডার এর বর্তমান অবস্থা জানুন"
-          >
-            <span className="icon">📦</span>
-            <span>অর্ডার ট্র্যাক করুন</span>
-          </button>
-          
-          <span className="top-bar-divider desktop-only">|</span>
-          
-          <button 
-            type="button" 
-            className="top-bar-btn admin-btn"
-            onClick={onOpenAdmin}
-            title="স্টোর অর্ডার ম্যানেজার ও স্ট্যাটাস আপডেট"
-          >
-            <span className="icon">🛠️</span>
-            <span>এডমিন প্যানেল</span>
-          </button>
-
-          <span className="top-bar-divider desktop-only">|</span>
-          
           <a 
             href={`https://wa.me/${siteConfig.whatsappNumber}?text=${encodeURIComponent('হ্যালো ' + siteConfig.storeName + ', আমি কিছু তথ্য জানতে চাই।')}`}
             target="_blank" 

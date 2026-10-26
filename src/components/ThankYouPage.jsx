@@ -444,13 +444,7 @@ export default function ThankYouPage({
           </button>
 
           {/* Live Order Tracker */}
-          <button
-            type="button"
-            onClick={onOpenTracking}
-            className="py-3 px-4 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs sm:text-sm transition-all cursor-pointer shadow flex items-center justify-center gap-1.5"
-          >
-            <span>📦 অর্ডার ট্র্যাক করুন</span>
-          </button>
+          
 
           {/* Urgent WhatsApp Support */}
           <a
