@@ -14,7 +14,8 @@ const DATA_DIR = path.join(__dirname, 'data');
 const DB_PATH = path.join(DATA_DIR, 'store-db.json');
 const INITIAL_PRODUCTS_PATH = path.join(__dirname, 'src', 'data', 'products.json');
 
-// Active admin tokens in memory + persisted in DB
+const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours max in-memory session lifetime
+
 function hashPassword(password: string, salt = 'deshimart_salt_2026'): string {
   return crypto.scryptSync(password, salt, 64).toString('hex');
 }
@@ -53,13 +54,15 @@ interface StoreDatabase {
 
 function getDefaultDb(): StoreDatabase {
   const initialProds = loadInitialProducts();
-  const sampleProd1 = initialProds[1] || initialProds[0] || {
-    id: 'bbz-101',
-    title: 'মেনস ক্লাসিক ফর্মাল লেদার লোফার সু',
-    price: 690,
-    image: 'https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&w=600&q=80'
+  const sampleProd1 = initialProds[0] || {
+    id: 'bbz-11762',
+    slug: 'series-11-sim-1000-5g-smart-watch-with-camera-bbz11762',
+    sku: 'BBZ-11762',
+    title: 'Series 11 (SIM-1000) 5G Smart Watch with Camera & SIM Support',
+    price: 2050,
+    image: 'https://bbazar.com.bd/backend/product/0BMXawcFgOCoHb49jFksdrQza2lxTytRozRWaxZr.jpg'
   };
-  const sampleProd0 = initialProds[0] || sampleProd1;
+  const sampleProd0 = initialProds[1] || sampleProd1;
 
   return {
     adminUser: {
@@ -72,67 +75,71 @@ function getDefaultDb(): StoreDatabase {
     orders: [
       {
         orderId: 'INV-2026-8492',
-        customerName: 'তানভীর আহমেদ',
+        customerName: 'Tanvir Ahmed',
         customerPhone: '01912345678',
         operator: 'Banglalink',
-        customerAddress: 'হাউজ ১২, রোড ৫, ধানমন্ডি, ঢাকা-১২০৫',
-        deliveryArea: 'ঢাকার ভিতরে',
+        customerAddress: 'House 12, Road 5, Dhanmondi, Dhaka-1205',
+        deliveryArea: 'Inside Dhaka',
         deliveryFee: 70,
         product: sampleProd1,
-        selectedSize: '41',
-        selectedColor: 'Chocolate Brown (চকলেট ব্রাউন)',
+        selectedSize: 'Standard',
+        selectedColor: 'Black',
         quantity: 1,
-        grandTotal: 760,
-        date: '১৭ অক্টোবর, ২০২৬',
-        time: '০৮:৩০ PM',
+        grandTotal: 2120,
+        date: 'Oct 26, 2026',
+        time: '08:30 PM',
         statusStep: 3,
-        status: 'কুরিয়ারে দেওয়া হয়েছে (Handed to Courier)',
+        status: 'In Courier',
         courier: 'Steadfast Courier',
         consignmentId: 'STF-782910',
-        source: 'Dedicated Checkout Page',
+        source: 'Storefront Checkout',
+        orderedFromPath: `/checkout/${sampleProd1.slug || sampleProd1.id}`,
+        productPagePath: `/product/${sampleProd1.slug || sampleProd1.id}`,
         timestamp: Date.now() - 7200000
       },
       {
         orderId: 'INV-2026-5120',
-        customerName: 'রাকিবুল ইসলাম',
+        customerName: 'Rakibul Islam',
         customerPhone: '01712345670',
         operator: 'Grameenphone',
-        customerAddress: 'টাউন হল মোড়, ময়মনসিংহ সদর',
-        deliveryArea: 'ঢাকার বাইরে',
+        customerAddress: 'Town Hall More, Mymensingh Sadar',
+        deliveryArea: 'Outside Dhaka',
         deliveryFee: 130,
         product: sampleProd0,
-        selectedSize: 'L (40)',
-        selectedColor: 'Royal Blue (রয়েল ব্লু)',
+        selectedSize: 'Standard',
+        selectedColor: 'Black',
         quantity: 1,
-        grandTotal: 980,
-        date: '১৭ অক্টোবর, ২০২৬',
-        time: '০৪:১৫ PM',
+        grandTotal: 1905,
+        date: 'Oct 26, 2026',
+        time: '04:15 PM',
         statusStep: 4,
-        status: 'ডেলিভারির পথে (Out for Delivery)',
+        status: 'Out for Delivery',
         courier: 'Steadfast Courier',
         consignmentId: 'STF-654128',
-        source: 'Dedicated Checkout Page',
+        source: 'Storefront Checkout',
+        orderedFromPath: `/checkout/${sampleProd0.slug || sampleProd0.id}`,
+        productPagePath: `/product/${sampleProd0.slug || sampleProd0.id}`,
         timestamp: Date.now() - 14400000
       }
     ],
     abandonedLeads: [
       {
         leadId: 'LEAD-01823456789-bbz-102',
-        customerName: 'মেহজাবিন চৌধুরী',
+        customerName: 'Mehjabin Chowdhury',
         customerPhone: '01823456789',
-        customerAddress: 'বাড়ি #১৫, জিইসি মোড়, চট্টগ্রাম',
+        customerAddress: 'House #15, GEC More, Chattogram',
         operator: 'Robi',
         product: sampleProd1,
-        selectedSize: '38',
-        selectedColor: 'মারুন',
+        selectedSize: 'Standard',
+        selectedColor: 'Black',
         quantity: 1,
         hasOrderBump: false,
-        estimatedTotal: 1040,
+        estimatedTotal: 2120,
         timestamp: new Date(Date.now() - 3600000).toISOString(),
-        date: '১৭ অক্টোবর, ২০২৬',
-        time: '০৭:১৫ PM',
-        status: 'অসম্পূর্ণ (Abandoned Lead)',
-        source: 'Dedicated Checkout Page'
+        date: 'Oct 26, 2026',
+        time: '07:15 PM',
+        status: 'Abandoned',
+        source: 'Storefront Checkout'
       }
     ],
     customProducts: null,
@@ -175,17 +182,30 @@ function writeDb(db: StoreDatabase): void {
   }
 }
 
+// Strict no-cache middleware for all /api/admin routes
+function noCacheAdmin(_req: express.Request, res: express.Response, next: express.NextFunction) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+}
+
 // Middleware to verify Admin Bearer Token
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
   if (!token) {
-    return res.status(401).json({ error: 'অনুমতি নেই। অনুগ্রহ করে অ্যাডমিন লগইন করুন।' });
+    return res.status(401).json({ error: 'Authentication required. Please sign in.' });
   }
   const db = readDb();
   const session = db.sessions?.[token];
   if (!session) {
-    return res.status(401).json({ error: 'সেশন মেয়াদোত্তীর্ণ হয়েছে। পুনরায় লগইন করুন।' });
+    return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+  }
+  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
+    delete db.sessions[token];
+    writeDb(db);
+    return res.status(401).json({ error: 'Session timed out. Please sign in again.' });
   }
   next();
 }
@@ -193,6 +213,7 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: '5mb' }));
+  app.use('/api/admin', noCacheAdmin);
 
   // =========================================================================
   // 1. PUBLIC STOREFRONT API ROUTES (/api/store/*)
@@ -200,16 +221,16 @@ async function startServer() {
   app.get('/api/store/bootstrap', (_req, res) => {
     const db = readDb();
     res.json({
+      orders: db.orders || [],
       customProducts: db.customProducts,
       pixelConfig: db.pixelConfig
     });
   });
 
-  // Create a new order from the dedicated checkout page
   app.post('/api/store/orders', (req, res) => {
     const newOrder = req.body;
     if (!newOrder || !newOrder.customerPhone) {
-      return res.status(400).json({ error: 'অবৈধ অর্ডার তথ্য' });
+      return res.status(400).json({ error: 'Invalid order details.' });
     }
     const db = readDb();
     const orderId = newOrder.orderId || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -219,7 +240,6 @@ async function startServer() {
       timestamp: Date.now()
     };
     db.orders = [savedOrder, ...(db.orders || [])];
-    // Clean up matching abandoned lead by phone number
     db.abandonedLeads = (db.abandonedLeads || []).filter(
       (l: any) => l.customerPhone !== newOrder.customerPhone
     );
@@ -227,7 +247,6 @@ async function startServer() {
     res.status(201).json({ success: true, order: savedOrder });
   });
 
-  // Add post-purchase VIP upsell to an existing order
   app.post('/api/store/orders/:orderId/upsell', (req, res) => {
     const { orderId } = req.params;
     const { upsellItem } = req.body;
@@ -251,11 +270,10 @@ async function startServer() {
     res.json({ success: true, order: updatedOrder });
   });
 
-  // Save/update real-time abandoned checkout lead
   app.post('/api/store/leads', (req, res) => {
     const draftLead = req.body;
     if (!draftLead || !draftLead.customerPhone) {
-      return res.status(400).json({ error: 'অবৈধ লিড তথ্য' });
+      return res.status(400).json({ error: 'Invalid lead data.' });
     }
     const db = readDb();
     const leads = db.abandonedLeads || [];
@@ -270,13 +288,12 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // Get single order for Thank You page verification
   app.get('/api/store/orders/:orderId', (req, res) => {
     const { orderId } = req.params;
     const db = readDb();
     const found = (db.orders || []).find((o: any) => o.orderId === orderId);
     if (!found) {
-      return res.status(404).json({ error: 'অর্ডার পাওয়া যায়নি' });
+      return res.status(404).json({ error: 'Order not found.' });
     }
     res.json({ order: found });
   });
@@ -287,7 +304,7 @@ async function startServer() {
   app.post('/api/admin/login', (req, res) => {
     const { identifier, password } = req.body || {};
     if (!identifier || !password) {
-      return res.status(400).json({ error: 'ইউজারনেম/ইমেইল এবং পাসওয়ার্ড প্রদান করুন।' });
+      return res.status(400).json({ error: 'Please enter both username and password.' });
     }
 
     const db = readDb();
@@ -298,15 +315,23 @@ async function startServer() {
 
     const inputHash = hashPassword(String(password));
     if (!validUser || inputHash !== db.adminUser.passwordHash) {
-      return res.status(401).json({ error: 'ভুল ইউজারনেম বা পাসওয়ার্ড! আবার চেষ্টা করুন।' });
+      return res.status(401).json({ error: 'Invalid username or password.' });
     }
 
     const token = crypto.randomBytes(32).toString('hex');
-    db.sessions = db.sessions || {};
-    db.sessions[token] = {
+    // Keep only fresh sessions
+    const now = Date.now();
+    const activeSessions: Record<string, { username: string; createdAt: number }> = {};
+    for (const [k, v] of Object.entries(db.sessions || {})) {
+      if (now - v.createdAt < SESSION_TTL_MS) {
+        activeSessions[k] = v;
+      }
+    }
+    activeSessions[token] = {
       username: db.adminUser.username,
-      createdAt: Date.now()
+      createdAt: now
     };
+    db.sessions = activeSessions;
     writeDb(db);
 
     res.json({
@@ -332,7 +357,10 @@ async function startServer() {
 
   app.post('/api/admin/logout', (req, res) => {
     const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const headerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const bodyToken = req.body?.token ? String(req.body.token).trim() : '';
+    const token = headerToken || bodyToken;
+
     if (token) {
       const db = readDb();
       if (db.sessions && db.sessions[token]) {
@@ -348,7 +376,7 @@ async function startServer() {
     const db = readDb();
 
     if (!currentPassword || hashPassword(String(currentPassword)) !== db.adminUser.passwordHash) {
-      return res.status(400).json({ error: 'বর্তমান পাসওয়ার্ড সঠিক নয়।' });
+      return res.status(400).json({ error: 'Current password is incorrect.' });
     }
 
     if (newUsername && String(newUsername).trim().length >= 3) {
@@ -389,7 +417,26 @@ async function startServer() {
     });
   });
 
-  // Update order status, courier, consignmentId, or notes
+  app.post('/api/admin/orders', requireAdminAuth, (req, res) => {
+    const manualOrder = req.body || {};
+    if (!manualOrder.customerName || !manualOrder.customerPhone) {
+      return res.status(400).json({ error: 'Customer name and phone are required.' });
+    }
+    const db = readDb();
+    const orderId = manualOrder.orderId || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const savedOrder = {
+      ...manualOrder,
+      orderId,
+      timestamp: Date.now()
+    };
+    db.orders = [savedOrder, ...(db.orders || [])];
+    db.abandonedLeads = (db.abandonedLeads || []).filter(
+      (l: any) => l.customerPhone !== manualOrder.customerPhone
+    );
+    writeDb(db);
+    res.status(201).json({ success: true, order: savedOrder, orders: db.orders });
+  });
+
   app.patch('/api/admin/orders/:orderId', requireAdminAuth, (req, res) => {
     const { orderId } = req.params;
     const updates = req.body || {};
@@ -407,7 +454,6 @@ async function startServer() {
     res.json({ success: true, order: updatedOrder, orders: db.orders });
   });
 
-  // Delete an order
   app.delete('/api/admin/orders/:orderId', requireAdminAuth, (req, res) => {
     const { orderId } = req.params;
     const db = readDb();
@@ -416,23 +462,22 @@ async function startServer() {
     res.json({ success: true, orders: db.orders });
   });
 
-  // Convert abandoned lead to confirmed order
   app.post('/api/admin/leads/:leadId/convert', requireAdminAuth, (req, res) => {
     const { leadId } = req.params;
     const db = readDb();
     const lead = (db.abandonedLeads || []).find((l: any) => l.leadId === leadId);
     if (!lead) {
-      return res.status(404).json({ error: 'লিড পাওয়া যায়নি' });
+      return res.status(404).json({ error: 'Lead not found.' });
     }
 
     const now = new Date();
     const orderId = `INV-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const formattedDate = now.toLocaleDateString('bn-BD', {
+    const formattedDate = now.toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric'
     });
-    const formattedTime = now.toLocaleTimeString('bn-BD', {
+    const formattedTime = now.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
@@ -440,25 +485,25 @@ async function startServer() {
 
     const convertedOrder = {
       orderId,
-      customerName: lead.customerName || 'সম্মানিত গ্রাহক',
+      customerName: lead.customerName || 'Customer',
       customerPhone: lead.customerPhone,
-      customerAddress: lead.customerAddress || 'ফোন কলের মাধ্যমে নিশ্চিত করা হয়েছে',
+      customerAddress: lead.customerAddress || 'Confirmed via phone call',
       operator: lead.operator || 'BD Mobile',
-      deliveryArea: 'ঢাকার ভেতরে',
+      deliveryArea: 'Inside Dhaka',
       deliveryFee: 70,
       product: lead.product,
-      selectedSize: lead.selectedSize || 'স্ট্যান্ডার্ড',
-      selectedColor: lead.selectedColor || 'স্ট্যান্ডার্ড',
+      selectedSize: lead.selectedSize || 'Standard',
+      selectedColor: lead.selectedColor || 'Standard',
       quantity: lead.quantity || 1,
       hasOrderBump: false,
       grandTotal: lead.estimatedTotal || ((lead.product?.price || 0) * (lead.quantity || 1) + 70),
       date: formattedDate,
       time: formattedTime,
       statusStep: 1,
-      status: 'অর্ডার গৃহীত হয়েছে (Recovered Lead)',
+      status: 'Pending',
       courier: 'Steadfast Courier',
       consignmentId: `STF-${Math.floor(100000 + Math.random() * 900000)}`,
-      source: 'Recovered Abandoned Lead',
+      source: 'Recovered Cart',
       timestamp: Date.now()
     };
 
@@ -476,7 +521,6 @@ async function startServer() {
     });
   });
 
-  // Delete an abandoned lead
   app.delete('/api/admin/leads/:leadId', requireAdminAuth, (req, res) => {
     const { leadId } = req.params;
     const db = readDb();
@@ -485,11 +529,10 @@ async function startServer() {
     res.json({ success: true, abandonedLeads: db.abandonedLeads });
   });
 
-  // Save/update custom products catalog
   app.put('/api/admin/products', requireAdminAuth, (req, res) => {
     const { products } = req.body || {};
     if (!Array.isArray(products)) {
-      return res.status(400).json({ error: 'অবৈধ প্রোডাক্ট তালিকা' });
+      return res.status(400).json({ error: 'Invalid product list.' });
     }
     const db = readDb();
     db.customProducts = products;
@@ -497,7 +540,6 @@ async function startServer() {
     res.json({ success: true, products: db.customProducts });
   });
 
-  // Save/update pixel & marketing settings
   app.put('/api/admin/settings', requireAdminAuth, (req, res) => {
     const { pixelConfig } = req.body || {};
     const db = readDb();

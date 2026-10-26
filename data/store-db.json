@@ -1,0 +1,85 @@
+{
+  "adminUser": {
+    "username": "admin",
+    "email": "admin@deshimart.com",
+    "passwordHash": "05b60de024330d5fb4c3c2b1123c5ff15147bdd0432ba3f7fd03c4c870c7f78d21951c709f9a5e2530a8fa1d20c68134cc6c5ab083835ec205cfb443af4d6d96",
+    "updatedAt": "2026-10-26T17:07:32.787Z"
+  },
+  "sessions": {},
+  "orders": [
+    {
+      "orderId": "INV-2026-8492",
+      "customerName": "Tanvir Ahmed",
+      "customerPhone": "01912345678",
+      "operator": "Banglalink",
+      "customerAddress": "House 12, Road 5, Dhanmondi, Dhaka-1205",
+      "deliveryArea": "Inside Dhaka",
+      "deliveryFee": 70,
+      "product": {
+        "id": "bbz-11762",
+        "bbazarId": 11762,
+        "sku": "BBZ-11762",
+        "title": "Series 11 (SIM-1000) 5G Smart Watch with Camera & SIM Support",
+        "slug": "series-11-sim-1000-5g-smart-watch-with-camera-bbz11762",
+        "image": "https://bbazar.com.bd/backend/product/0BMXawcFgOCoHb49jFksdrQza2lxTytRozRWaxZr.jpg",
+        "price": 2050,
+        "originalPrice": 3000
+      },
+      "selectedSize": "Standard",
+      "selectedColor": "Black",
+      "quantity": 1,
+      "grandTotal": 2120,
+      "date": "Oct 26, 2026",
+      "time": "08:30 PM",
+      "statusStep": 3,
+      "status": "In Courier",
+      "courier": "Steadfast Courier",
+      "consignmentId": "STF-782910",
+      "source": "Storefront Checkout",
+      "orderedFromPath": "/checkout/series-11-sim-1000-5g-smart-watch-with-camera-bbz11762",
+      "productPagePath": "/product/series-11-sim-1000-5g-smart-watch-with-camera-bbz11762",
+      "timestamp": 1793027252787
+    },
+    {
+      "orderId": "INV-2026-5120",
+      "customerName": "Rakibul Islam",
+      "customerPhone": "01712345670",
+      "operator": "Grameenphone",
+      "customerAddress": "Town Hall More, Mymensingh Sadar",
+      "deliveryArea": "Outside Dhaka",
+      "deliveryFee": 130,
+      "product": {
+        "id": "bbz-11764",
+        "bbazarId": 11764,
+        "sku": "BBZ-11764",
+        "title": "Hoco J121A 20000mAh Power Bank – 22.5W Fast Charging & PD 20W with LED Digital Display",
+        "slug": "hoco-j121a-20000mah-power-bank-225w-fast-char-bbz11764",
+        "image": "https://bbazar.com.bd/backend/product/IL7qtGmgb1yQ4KnzGTBQwx7Poaro2tpswlcXvXfr.jpg",
+        "price": 1775,
+        "originalPrice": 2500
+      },
+      "selectedSize": "Standard",
+      "selectedColor": "Black",
+      "quantity": 1,
+      "grandTotal": 1905,
+      "date": "Oct 26, 2026",
+      "time": "04:15 PM",
+      "statusStep": 4,
+      "status": "Out for Delivery",
+      "courier": "Steadfast Courier",
+      "consignmentId": "STF-654128",
+      "source": "Storefront Checkout",
+      "orderedFromPath": "/checkout/hoco-j121a-20000mah-power-bank-225w-fast-char-bbz11764",
+      "productPagePath": "/product/hoco-j121a-20000mah-power-bank-225w-fast-char-bbz11764",
+      "timestamp": 1793020052787
+    }
+  ],
+  "abandonedLeads": [],
+  "customProducts": null,
+  "pixelConfig": {
+    "fbPixelId": "",
+    "fbAccessToken": "",
+    "tiktokPixelId": "",
+    "isDebuggerActive": false
+  }
+}

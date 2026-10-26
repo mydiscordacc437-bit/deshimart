@@ -189,6 +189,7 @@ export default function CheckoutPage({
 
     const now = new Date();
     const orderId = `INV-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const productSlug = product.slug || product.id;
 
     const newOrder = {
       orderId,
@@ -196,10 +197,11 @@ export default function CheckoutPage({
       customerPhone: cleanedPhone,
       customerAddress: customerAddress.trim(),
       operator: getBDOperatorName(cleanedPhone),
-      deliveryArea: deliveryArea === 'inside' ? 'ঢাকার ভেতরে' : 'ঢাকার বাইরে',
+      deliveryArea: deliveryArea === 'inside' ? 'Inside Dhaka' : 'Outside Dhaka',
       deliveryFee,
       product: {
         id: product.id,
+        slug: productSlug,
         title: product.title,
         price: product.price,
         image: product.image,
@@ -214,13 +216,15 @@ export default function CheckoutPage({
       orderBumpItem: null,
       subtotal,
       grandTotal,
-      date: now.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }),
-      time: now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' }),
+      date: now.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
+      time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
       statusStep: 1,
-      status: 'অর্ডার গৃহীত হয়েছে (Order Placed)',
+      status: 'Pending',
       courier: 'Steadfast Courier',
       consignmentId: `STF-${Math.floor(100000 + Math.random() * 900000)}`,
-      source: 'Dedicated Checkout Page',
+      source: 'Storefront Checkout',
+      orderedFromPath: `/checkout/${productSlug}`,
+      productPagePath: `/product/${productSlug}`,
       timestamp: Date.now(),
       upsellItems: []
     };

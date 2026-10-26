@@ -41,41 +41,49 @@ import './App.css';
 const initialSeedOrders = [
   {
     orderId: 'INV-2026-8492',
-    customerName: 'তানভীর আহমেদ',
+    customerName: 'Tanvir Ahmed',
     customerPhone: '01912345678',
-    customerAddress: 'হাউজ ১২, রোড ৫, ধানমন্ডি, ঢাকা-১২০৫',
-    deliveryArea: 'ঢাকার ভিতরে',
+    operator: 'Banglalink',
+    customerAddress: 'House 12, Road 5, Dhanmondi, Dhaka-1205',
+    deliveryArea: 'Inside Dhaka',
     deliveryFee: 70,
-    product: initialProducts[1] || initialProducts[0],
-    selectedSize: '41',
-    selectedColor: 'Chocolate Brown (চকলেট ব্রাউন)',
+    product: initialProducts[0],
+    selectedSize: 'Standard',
+    selectedColor: 'Black',
     quantity: 1,
-    grandTotal: 760,
-    date: '১৭ অক্টোবর, ২০২৬',
-    time: '০৮:৩০ PM',
+    grandTotal: 2120,
+    date: 'Oct 26, 2026',
+    time: '08:30 PM',
     statusStep: 3,
-    status: 'কুরিয়ারে দেওয়া হয়েছে (Handed to Courier)',
+    status: 'In Courier',
     courier: 'Steadfast Courier',
-    consignmentId: 'STF-782910'
+    consignmentId: 'STF-782910',
+    source: 'Storefront Checkout',
+    orderedFromPath: `/checkout/${initialProducts[0]?.slug || initialProducts[0]?.id}`,
+    productPagePath: `/product/${initialProducts[0]?.slug || initialProducts[0]?.id}`
   },
   {
     orderId: 'INV-2026-5120',
-    customerName: 'রাকিবুল ইসলাম',
+    customerName: 'Rakibul Islam',
     customerPhone: '01712345670',
-    customerAddress: 'টাউন হল মোড়, ময়মনসিংহ সদর',
-    deliveryArea: 'ঢাকার বাইরে',
+    operator: 'Grameenphone',
+    customerAddress: 'Town Hall More, Mymensingh Sadar',
+    deliveryArea: 'Outside Dhaka',
     deliveryFee: 130,
-    product: initialProducts[0],
-    selectedSize: 'L (40)',
-    selectedColor: 'Royal Blue (রয়েল ব্লু)',
+    product: initialProducts[1] || initialProducts[0],
+    selectedSize: 'Standard',
+    selectedColor: 'Black',
     quantity: 1,
-    grandTotal: 980,
-    date: '১৭ অক্টোবর, ২০২৬',
-    time: '০৪:১৫ PM',
+    grandTotal: 1905,
+    date: 'Oct 26, 2026',
+    time: '04:15 PM',
     statusStep: 4,
-    status: 'ডেলিভারির পথে (Out for Delivery)',
+    status: 'Out for Delivery',
     courier: 'Steadfast Courier',
-    consignmentId: 'STF-654128'
+    consignmentId: 'STF-654128',
+    source: 'Storefront Checkout',
+    orderedFromPath: `/checkout/${(initialProducts[1] || initialProducts[0])?.slug || (initialProducts[1] || initialProducts[0])?.id}`,
+    productPagePath: `/product/${(initialProducts[1] || initialProducts[0])?.slug || (initialProducts[1] || initialProducts[0])?.id}`
   }
 ];
 
@@ -115,12 +123,15 @@ export default function App() {
     return initialProducts;
   });
 
-  // Bootstrap public store settings & custom catalog from backend
+  // Bootstrap public store settings, orders, & custom catalog from backend
   useEffect(() => {
     fetch('/api/store/bootstrap')
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
         if (!data) return;
+        if (Array.isArray(data.orders) && data.orders.length > 0) {
+          setOrders(data.orders);
+        }
         if (Array.isArray(data.customProducts) && data.customProducts.length > 0) {
           setProductsList(data.customProducts);
         }
@@ -294,19 +305,19 @@ export default function App() {
   // Delete lead manually from Admin
   const handleDeleteLead = (leadId) => {
     setAbandonedLeads(prev => prev.filter(l => l.leadId !== leadId));
-    showToast('অসম্পূর্ণ লিড মুছে ফেলা হয়েছে', 'info');
+    showToast('Abandoned cart deleted', 'info');
   };
 
   // Convert abandoned lead into confirmed order from Admin
   const handleConvertLeadToOrder = (lead) => {
     const now = new Date();
     const orderId = `INV-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const formattedDate = now.toLocaleDateString('bn-BD', {
+    const formattedDate = now.toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric'
     });
-    const formattedTime = now.toLocaleTimeString('bn-BD', {
+    const formattedTime = now.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
@@ -314,31 +325,31 @@ export default function App() {
 
     const convertedOrder = {
       orderId,
-      customerName: lead.customerName || 'সম্মানিত গ্রাহক',
+      customerName: lead.customerName || 'Customer',
       customerPhone: lead.customerPhone,
-      customerAddress: lead.customerAddress || 'ফোন কলের মাধ্যমে নিশ্চিত করা হয়েছে',
+      customerAddress: lead.customerAddress || 'Confirmed via phone call',
       operator: lead.operator || getBDOperatorName(lead.customerPhone),
-      deliveryArea: 'ঢাকার ভেতরে',
+      deliveryArea: 'Inside Dhaka',
       deliveryFee: 70,
       product: lead.product,
-      selectedSize: lead.selectedSize || 'স্ট্যান্ডার্ড',
-      selectedColor: lead.selectedColor || 'স্ট্যান্ডার্ড',
+      selectedSize: lead.selectedSize || 'Standard',
+      selectedColor: lead.selectedColor || 'Standard',
       quantity: lead.quantity || 1,
       hasOrderBump: false,
       grandTotal: lead.estimatedTotal || ((lead.product?.price || 0) * (lead.quantity || 1) + 70),
       date: formattedDate,
       time: formattedTime,
       statusStep: 1,
-      status: 'অর্ডার গৃহীত হয়েছে (Recovered Lead)',
+      status: 'Pending',
       courier: 'Steadfast Courier',
       consignmentId: `STF-${Math.floor(100000 + Math.random() * 900000)}`,
-      source: 'Recovered Abandoned Lead',
+      source: 'Recovered Cart',
       timestamp: Date.now()
     };
 
     setOrders(prev => [convertedOrder, ...prev]);
     handleCleanupDraftLead(lead.customerPhone);
-    showToast(`✅ লিড সফলভাবে কনফার্ম অর্ডার #${orderId} হিসেবে যুক্ত হয়েছে!`);
+    showToast(`Converted to Order #${orderId}`);
   };
 
   // Check 15-minute duplicate order prevention
@@ -459,7 +470,7 @@ export default function App() {
       }
       return o;
     }));
-    showToast(`অর্ডার #${orderId} এর স্ট্যাটাস আপডেট হয়েছে (ধাপ ${newStep})!`, 'info');
+    showToast(`Order #${orderId} status updated`, 'info');
   };
 
   // Admin updates courier partner & consignment ID
