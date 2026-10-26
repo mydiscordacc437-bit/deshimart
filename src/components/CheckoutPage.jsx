@@ -1,6 +1,6 @@
 // src/components/CheckoutPage.jsx
 /**
- * DeshiMart BD - Dedicated Single-Product Direct Checkout Page (/checkout/:slug)
+ * DeshiMart BD - Dedicated Single-Product Direct Ordering Page (/checkout/:slug)
  * 
  * Features:
  *   1. Distraction-Free High-Converting Funnel Header
@@ -8,9 +8,8 @@
  *   3. Zero-Friction 3-Field BD Cash on Delivery Checkout Form
  *   4. Bangla Numeral Sanitization & Operator Detection
  *   5. Real-Time Abandoned Lead Auto-Save (3s Debounce)
- *   6. 1-Click Order Bump Upsell (+৳290)
- *   7. 15-Minute Duplicate Order Spam Prevention
- *   8. Automatic Redirect to Dedicated Thank You Page (/thank-you/:slug/:orderId)
+ *   6. 15-Minute Duplicate Order Spam Prevention
+ *   7. Automatic Redirect to Dedicated Thank You Page (/thank-you/:slug/:orderId)
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -29,11 +28,11 @@ export default function CheckoutPage({
 }) {
   if (!product) return null;
 
-  // Read URL search params for initial pre-selections if navigated from landing page
+  // Read URL search params for initial pre-selections if navigated from product page
   const searchParams = new URLSearchParams(window.location.search);
   const initialBundle = searchParams.get('bundle') || '1';
   const initialSize = searchParams.get('size') || product.sizes?.[0] || 'Standard';
-  const initialColor = searchParams.get('color') || product.colors?.[0]?.name || 'Standard';
+  const initialColor = searchParams.get('color') || product.colors?.[0]?.name || (typeof product.colors?.[0] === 'string' ? product.colors[0] : 'Standard');
   const initialQty = Number(searchParams.get('qty')) || Number(initialBundle) || 1;
 
   // Product Selection States
@@ -42,8 +41,18 @@ export default function CheckoutPage({
   const [selectedBundle, setSelectedBundle] = useState(initialBundle);
   const [quantity, setQuantity] = useState(initialQty);
 
-  // 1-Click Order Bump State
-  const [hasOrderBump, setHasOrderBump] = useState(false);
+  // Sync product selection state if product changes
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const b = params.get('bundle') || '1';
+    const s = params.get('size') || product.sizes?.[0] || 'Standard';
+    const c = params.get('color') || product.colors?.[0]?.name || (typeof product.colors?.[0] === 'string' ? product.colors[0] : 'Standard');
+    const q = Number(params.get('qty')) || Number(b) || 1;
+    setSelectedBundle(b);
+    setSelectedSize(s);
+    setSelectedColor(c);
+    setQuantity(q);
+  }, [product.id, product.slug]);
 
   // Form inputs state
   const [customerName, setCustomerName] = useState('');
@@ -61,6 +70,24 @@ export default function CheckoutPage({
   // InitiateCheckout tracked flag (fire once)
   const hasInitiatedCheckout = useRef(false);
 
+  // Bundle Discount Calculation
+  let bundleDiscount = 0;
+  if (selectedBundle === '2') bundleDiscount = 100;
+  if (selectedBundle === '3') bundleDiscount = 250;
+
+  // Handle bundle selection
+  const handleSelectBundle = (bundleKey) => {
+    setSelectedBundle(bundleKey);
+    const qty = Number(bundleKey);
+    setQuantity(qty);
+  };
+
+  // Pricing calculations
+  const deliveryFee = deliveryArea === 'inside' ? 70 : 130;
+  const itemsBaseTotal = product.price * quantity;
+  const subtotal = Math.max(0, itemsBaseTotal - bundleDiscount);
+  const grandTotal = subtotal + deliveryFee;
+
   // Dynamic SEO & Title
   useEffect(() => {
     const originalTitle = document.title;
@@ -77,39 +104,6 @@ export default function CheckoutPage({
       document.title = originalTitle;
     };
   }, [product]);
-
-  // Complementary Order Bump Item based on product category
-  const orderBumpItem = {
-    title: product.category === 'gadgets' || product.category === 'watches-accessories'
-      ? 'হ্যান্ডবস মাল্টি-পারপাস হাই-পাওয়ার ক্লিনিং ফোম ও ব্রাশ কিট (650ml)'
-      : product.category === 'shoes'
-      ? 'প্রিমিয়াম অ্যান্টি-ব্যাকটেরিয়াল সিলিকন কুশন ইনসোল ও মোজা পেয়ার'
-      : 'ম্যাজিক লিন্ট রিমুভার ও প্রিমিয়াম ফেব্রিক রিফ্রেশার কিট',
-    originalPrice: 480,
-    bumpPrice: 290,
-    image: product.category === 'shoes'
-      ? 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=300&q=80'
-      : 'https://bbazar.com.bd/backend/product/IL7qtGmgb1yQ4KnzGTBQwx7Poaro2tpswlcXvXfr.jpg'
-  };
-
-  // Bundle Discount Calculation
-  let bundleDiscount = 0;
-  if (selectedBundle === '2') bundleDiscount = 100;
-  if (selectedBundle === '3') bundleDiscount = 250;
-
-  // Handle bundle selection
-  const handleSelectBundle = (bundleKey) => {
-    setSelectedBundle(bundleKey);
-    const qty = Number(bundleKey);
-    setQuantity(qty);
-  };
-
-  // Pricing calculations
-  const deliveryFee = deliveryArea === 'inside' ? 70 : 130;
-  const itemsBaseTotal = product.price * quantity;
-  const bumpTotal = hasOrderBump ? orderBumpItem.bumpPrice : 0;
-  const subtotal = Math.max(0, itemsBaseTotal - bundleDiscount + bumpTotal);
-  const grandTotal = subtotal + deliveryFee;
 
   // Real-Time Abandoned Lead Auto-Save (3-Second Debounce)
   useEffect(() => {
@@ -138,7 +132,7 @@ export default function CheckoutPage({
         selectedSize,
         selectedColor,
         quantity,
-        hasOrderBump,
+        hasOrderBump: false,
         estimatedTotal: grandTotal,
         timestamp: now.toISOString(),
         date: now.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }),
@@ -157,7 +151,7 @@ export default function CheckoutPage({
         clearTimeout(leadDebounceTimer.current);
       }
     };
-  }, [customerPhone, customerName, customerAddress, selectedSize, selectedColor, quantity, hasOrderBump, grandTotal, product]);
+  }, [customerPhone, customerName, customerAddress, selectedSize, selectedColor, quantity, grandTotal, product]);
 
   // Handle Order Submit
   const handleSubmitOrder = (e) => {
@@ -216,8 +210,8 @@ export default function CheckoutPage({
       quantity,
       bundleOption: selectedBundle,
       bundleDiscount,
-      hasOrderBump,
-      orderBumpItem: hasOrderBump ? orderBumpItem : null,
+      hasOrderBump: false,
+      orderBumpItem: null,
       subtotal,
       grandTotal,
       date: now.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }),
@@ -268,8 +262,7 @@ export default function CheckoutPage({
               <span className="font-extrabold text-sm sm:text-base text-slate-900 block leading-tight">
                 {siteConfig.brandName}
               </span>
-              <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-[10px] text-emerald-600 font-bold block">
                 সুরক্ষিত ডিরেক্ট চেকআউট (100% COD)
               </span>
             </div>
@@ -277,14 +270,14 @@ export default function CheckoutPage({
 
           <div className="flex items-center gap-3 text-xs">
             <span className="hidden sm:inline text-slate-500">
-              হেল্পলাইন: <strong className="text-slate-800">{siteConfig.displayHelpline}</strong>
+              হেল্পলাইন: <strong className="text-slate-800 num">{siteConfig.displayHelpline}</strong>
             </span>
             <button
               type="button"
-              onClick={() => onNavigateTo ? onNavigateTo(`/offer/${product.slug || product.id}`) : onBackToHome()}
-              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors cursor-pointer"
+              onClick={() => onNavigateTo ? onNavigateTo(`/product/${product.slug || product.id}`) : onBackToHome()}
+              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors cursor-pointer whitespace-nowrap"
             >
-              ← অফার পেজ
+              ← পণ্যের পেজে ফিরুন
             </button>
           </div>
         </div>
@@ -295,9 +288,9 @@ export default function CheckoutPage({
         
         {/* Step Indicator */}
         <div className="flex items-center justify-center gap-3 text-xs font-bold text-slate-400">
-          <span className="text-slate-600">১. অফার সিলেক্ট</span>
+          <span className="text-slate-600">১. পণ্য নির্বাচন</span>
           <span>→</span>
-          <span className="px-3 py-1 rounded-full bg-orange-600 text-white shadow-sm">
+          <span className="px-3 py-1 rounded-md bg-orange-600 text-white shadow-sm">
             ২. চেকআউট ও ডেলিভারি তথ্য
           </span>
           <span>→</span>
@@ -312,34 +305,34 @@ export default function CheckoutPage({
             
             {/* Pre-Selected Product Lock-In Card */}
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-              <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-slate-400 block">
+              <span className="text-[11px] font-bold text-slate-500 block">
                 নির্বাচিত পণ্য:
               </span>
               <div className="flex items-center gap-3">
                 <img 
                   src={product.image} 
-                  alt="" 
+                  alt={product.title} 
                   className="w-16 h-16 object-cover rounded-xl bg-white border border-slate-200 flex-shrink-0"
                 />
                 <div>
                   <h2 className="font-extrabold text-xs sm:text-sm text-slate-900 line-clamp-2 leading-snug">
                     {product.title}
                   </h2>
-                  <div className="flex items-baseline gap-2 mt-1 font-mono">
+                  <div className="flex items-baseline gap-2 mt-1 font-mono num">
                     <span className="font-black text-base text-orange-600">৳{product.price}</span>
                     {product.originalPrice && (
                       <del className="text-xs text-slate-400">৳{product.originalPrice}</del>
                     )}
-                    <span className="px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 text-[10px] font-bold">
-                      অফার রেট
+                    <span className="text-rose-700 text-[11px] font-bold">
+                      · অফার রেট
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Variant Pills inside Lock-in Card */}
+              {/* Variant Selectors inside Lock-in Card */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200 text-xs">
-                {/* Size Pills */}
+                {/* Size Buttons */}
                 {product.sizes && product.sizes.length > 0 && (
                   <div>
                     <label className="text-[11px] font-bold text-slate-600 block mb-1">সাইজ:</label>
@@ -362,7 +355,7 @@ export default function CheckoutPage({
                   </div>
                 )}
 
-                {/* Color Pills */}
+                {/* Color Buttons */}
                 {product.colors && product.colors.length > 0 && (
                   <div>
                     <label className="text-[11px] font-bold text-slate-600 block mb-1">কালার:</label>
@@ -408,7 +401,7 @@ export default function CheckoutPage({
                     }`}
                   >
                     <div className="font-bold text-[11px] text-slate-900">১ টি</div>
-                    <div className="font-mono text-xs font-black text-orange-600">৳{product.price}</div>
+                    <div className="font-mono text-xs font-black text-orange-600 num">৳{product.price}</div>
                   </button>
 
                   {/* 2 Pcs */}
@@ -425,7 +418,7 @@ export default function CheckoutPage({
                       জনপ্রিয়
                     </span>
                     <div className="font-bold text-[11px] text-slate-900">২ টি (Save ৳100)</div>
-                    <div className="font-mono text-xs font-black text-orange-600">৳{(product.price * 2) - 100}</div>
+                    <div className="font-mono text-xs font-black text-orange-600 num">৳{(product.price * 2) - 100}</div>
                   </button>
 
                   {/* 3 Pcs */}
@@ -442,7 +435,7 @@ export default function CheckoutPage({
                       সেরা ছাড়
                     </span>
                     <div className="font-bold text-[11px] text-slate-900">৩ টি (Save ৳250)</div>
-                    <div className="font-mono text-xs font-black text-orange-600">৳{(product.price * 3) - 250}</div>
+                    <div className="font-mono text-xs font-black text-orange-600 num">৳{(product.price * 3) - 250}</div>
                   </button>
 
                 </div>
@@ -497,7 +490,7 @@ export default function CheckoutPage({
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(sanitizeBDPhone(e.target.value))}
                   placeholder="যেমন: 01712345678 বা ০১৭১২৩৪৫৬৭৮"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-sm outline-none font-mono bg-slate-50/50"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-sm outline-none font-mono bg-slate-50/50 num"
                 />
                 <span className="text-[10px] text-slate-500 block">
                   বাংলা বা ইংরেজি যেকোনো সংখ্যায় টাইপ করতে পারেন (013-019)।
@@ -548,7 +541,7 @@ export default function CheckoutPage({
                         <span className="text-[11px] text-slate-500">হোম ডেলিভারি (১-২ দিন)</span>
                       </div>
                     </div>
-                    <span className="font-black text-orange-600 font-mono text-sm">৳৭০</span>
+                    <span className="font-black text-orange-600 font-mono text-sm num">৳৭০</span>
                   </div>
 
                   {/* Outside Dhaka */}
@@ -573,7 +566,7 @@ export default function CheckoutPage({
                         <span className="text-[11px] text-slate-500">সারা বাংলাদেশে (২-৪ দিন)</span>
                       </div>
                     </div>
-                    <span className="font-black text-orange-600 font-mono text-sm">৳১৩০</span>
+                    <span className="font-black text-orange-600 font-mono text-sm num">৳১৩০</span>
                   </div>
 
                 </div>
@@ -583,71 +576,68 @@ export default function CheckoutPage({
 
           </div>
 
-          {/* Right 5 Columns: Live Bill Summary, Order Bump & CTA */}
+          {/* Right 5 Columns: Live Bill Summary & CTA (Yellow Order Bump Removed) */}
           <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm space-y-4">
             
             <h3 className="font-extrabold text-slate-900 text-sm sm:text-base border-b border-slate-100 pb-3 flex items-center gap-2">
               <span>🛍️ অর্ডার সামারি ও পেমেন্ট</span>
             </h3>
 
+            {/* Editable Quantity Stepper */}
+            <div className="flex items-center justify-between text-xs sm:text-sm py-1">
+              <span className="font-bold text-slate-700">অর্ডার পরিমাণ:</span>
+              <div className="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newQ = Math.max(1, quantity - 1);
+                    setQuantity(newQ);
+                    setSelectedBundle(String(newQ));
+                  }}
+                  className="w-8 h-8 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold cursor-pointer"
+                >
+                  -
+                </button>
+                <span className="w-8 text-center font-bold font-mono num">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newQ = quantity + 1;
+                    setQuantity(newQ);
+                    setSelectedBundle(String(newQ));
+                  }}
+                  className="w-8 h-8 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
             {/* Bill Calculations */}
-            <div className="space-y-2 text-xs">
+            <div className="space-y-2 text-xs pt-2 border-t border-slate-100">
               <div className="flex justify-between text-slate-600">
                 <span>পণ্যের মূল্য ({quantity} টি):</span>
-                <span className="font-mono font-bold text-slate-900">৳{itemsBaseTotal}</span>
+                <span className="font-mono font-bold text-slate-900 num">৳{itemsBaseTotal}</span>
               </div>
 
               {bundleDiscount > 0 && (
                 <div className="flex justify-between text-emerald-600 font-bold">
                   <span>বান্ডেল ডিসকাউন্ট:</span>
-                  <span className="font-mono">-৳{bundleDiscount}</span>
-                </div>
-              )}
-
-              {hasOrderBump && (
-                <div className="flex justify-between text-amber-700 font-bold">
-                  <span>অর্ডার বাম্প স্পেশাল অ্যাড-অন:</span>
-                  <span className="font-mono">+৳{orderBumpItem.bumpPrice}</span>
+                  <span className="font-mono num">-৳{bundleDiscount}</span>
                 </div>
               )}
 
               <div className="flex justify-between text-slate-600">
                 <span>ডেলিভারি চার্জ:</span>
-                <span className="font-mono font-bold text-slate-900">৳{deliveryFee}</span>
+                <span className="font-mono font-bold text-slate-900 num">৳{deliveryFee}</span>
               </div>
 
               <div className="border-t-2 border-slate-100 pt-3 flex justify-between items-center text-sm sm:text-base font-extrabold text-slate-900">
                 <span>সর্বমোট প্রদেয় টাকা:</span>
-                <span className="text-lg sm:text-xl font-mono text-orange-600 font-black">
+                <span className="text-lg sm:text-xl font-mono text-orange-600 font-black num">
                   ৳{grandTotal}
                 </span>
               </div>
-            </div>
-
-            {/* High-Converting Yellow Dashed Order Bump Card */}
-            <div 
-              style={{ background: '#FEFCE8', border: '2px dashed #EAB308' }}
-              className="p-3.5 rounded-xl space-y-2"
-            >
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={hasOrderBump}
-                  onChange={(e) => setHasOrderBump(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 text-orange-600 rounded border-amber-400 focus:ring-amber-400 cursor-pointer"
-                />
-                <div className="text-xs">
-                  <span className="font-extrabold text-slate-900 block leading-snug">
-                    🎁 হ্যাঁ! এই অর্ডারের সাথে আরও ১টি <span className="text-orange-700 underline">{orderBumpItem.title}</span> মাত্র ৳{orderBumpItem.bumpPrice}-এ যোগ করতে চাই
-                  </span>
-                  <span className="text-[10px] text-emerald-700 font-bold block mt-0.5">
-                    (এক্সট্রা কোনো ডেলিভারি চার্জ লাগবে না!)
-                  </span>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">
-                    রেগুলার মূল্য <del>৳{orderBumpItem.originalPrice}</del> | শুধুমাত্র আজকের স্পেশাল ডিল মাত্র ৳{orderBumpItem.bumpPrice}!
-                  </span>
-                </div>
-              </label>
             </div>
 
             {/* 100% Cash on Delivery Assurance Banner */}

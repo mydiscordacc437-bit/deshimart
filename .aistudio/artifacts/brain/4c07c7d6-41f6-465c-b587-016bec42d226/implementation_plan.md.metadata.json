@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan to transition all product ordering actions to a dedicated per-product checkout page, remove the bottom on-page order form and yellow Order Bump component, replace the bottom product page section with a relevant products grid, and route all completed orders to the dedicated Thank You page.",
+  "updatedAt":  "2026-10-26T16:41:16.839400225Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

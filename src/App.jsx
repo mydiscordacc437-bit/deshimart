@@ -4,9 +4,10 @@
  * 
  * Supports:
  *   1. Full E-Commerce Storefront: /
- *   2. Dedicated Daraz-Style Single Product Page: /product/:slug
- *   3. Distraction-Free Facebook/Instagram Ad Landing Funnel: /offer/:slug
- *   4. Secure Dedicated Admin Panel Route: /admin
+ *   2. Dedicated Single Product Page with Relevant Products: /product/:slug & /offer/:slug
+ *   3. Dedicated Per-Product Ordering Page: /checkout/:slug
+ *   4. Dedicated Thank You & Digital Cash Memo Page: /thank-you/:slug/:orderId
+ *   5. Secure Backend-Connected Admin Portal with Login Wall: /admin
  */
 
 import React, { useState, useEffect } from 'react';
@@ -23,10 +24,9 @@ import Footer from './components/Footer';
 import ProductPage from './components/ProductPage';
 import CheckoutPage from './components/CheckoutPage';
 import ThankYouPage from './components/ThankYouPage';
-import CheckoutModal from './components/CheckoutModal';
 import CartDrawer from './components/CartDrawer';
 import ProductDetailModal from './components/ProductDetailModal';
-import AdminModal from './components/AdminModal';
+import AdminPage from './components/AdminPage';
 import MobileNav from './components/MobileNav';
 import MobileCategoryDrawer from './components/MobileCategoryDrawer';
 import Toast from './components/Toast';
@@ -53,7 +53,7 @@ const initialSeedOrders = [
     grandTotal: 760,
     date: '১৭ অক্টোবর, ২০২৬',
     time: '০৮:৩০ PM',
-    statusStep: 3, // Step 3: কুরিয়ারে দেওয়া হয়েছে
+    statusStep: 3,
     status: 'কুরিয়ারে দেওয়া হয়েছে (Handed to Courier)',
     courier: 'Steadfast Courier',
     consignmentId: 'STF-782910'
@@ -72,7 +72,7 @@ const initialSeedOrders = [
     grandTotal: 980,
     date: '১৭ অক্টোবর, ২০২৬',
     time: '০৪:১৫ PM',
-    statusStep: 4, // Step 4: ডেলিভারির পথে
+    statusStep: 4,
     status: 'ডেলিভারির পথে (Out for Delivery)',
     courier: 'Steadfast Courier',
     consignmentId: 'STF-654128'
@@ -80,7 +80,7 @@ const initialSeedOrders = [
 ];
 
 export default function App() {
-  // Client-side Routing Engine
+  // Client-side Routing Engine (tracks both pathname and query string)
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
   useEffect(() => {
@@ -91,13 +91,14 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const navigateTo = (path) => {
-    window.history.pushState(null, '', path);
-    setCurrentPath(path);
+  const navigateTo = (url) => {
+    window.history.pushState(null, '', url);
+    const parsedPath = url.split('?')[0];
+    setCurrentPath(parsedPath);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
-  // Products catalog state (syncs with live B-Bazar imports & localStorage)
+  // Products catalog state (syncs with backend API & localStorage)
   const [productsList, setProductsList] = useState(() => {
     try {
       const savedCustom = localStorage.getItem('deshimart_custom_products');
@@ -113,6 +114,24 @@ export default function App() {
     }
     return initialProducts;
   });
+
+  // Bootstrap public store settings & custom catalog from backend
+  useEffect(() => {
+    fetch('/api/store/bootstrap')
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (!data) return;
+        if (Array.isArray(data.customProducts) && data.customProducts.length > 0) {
+          setProductsList(data.customProducts);
+        }
+        if (data.pixelConfig && data.pixelConfig.fbPixelId) {
+          setPixelConfig(data.pixelConfig);
+        }
+      })
+      .catch(() => {
+        // Offline or initial fallback
+      });
+  }, []);
 
   // Handle product updates or new B-Bazar imports
   const handleUpdateProducts = (productOrList, isBatch = false) => {
@@ -144,7 +163,7 @@ export default function App() {
     });
   };
 
-  // Pre-seed cart with 2 items to match wireframe [🛒 2]
+  // Pre-seed cart with 2 items
   const [cartItems, setCartItems] = useState([
     {
       id: "fs-1",
@@ -168,10 +187,6 @@ export default function App() {
 
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Modals state
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-  const [selectedProductForOrder, setSelectedProductForOrder] = useState(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   
   // Rich Product Detail Modal State
@@ -179,7 +194,6 @@ export default function App() {
   const [detailProduct, setDetailProduct] = useState(productsList[1] || productsList[0]);
 
   const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
-  const [socialProofEnabled, setSocialProofEnabled] = useState(false);
 
   // Live Orders State (stored and synced)
   const [orders, setOrders] = useState(() => {
@@ -219,7 +233,7 @@ export default function App() {
         selectedSize: '38',
         selectedColor: 'মারুন',
         quantity: 1,
-        hasOrderBump: true,
+        hasOrderBump: false,
         estimatedTotal: 1040,
         timestamp: new Date(Date.now() - 3600000).toISOString(),
         date: '১৭ অক্টোবর, ২০২৬',
@@ -264,6 +278,12 @@ export default function App() {
       }
       return [draftLead, ...prev];
     });
+
+    fetch('/api/store/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(draftLead)
+    }).catch(() => {});
   };
 
   // Remove phone from draft leads when purchase is confirmed
@@ -304,7 +324,7 @@ export default function App() {
       selectedSize: lead.selectedSize || 'স্ট্যান্ডার্ড',
       selectedColor: lead.selectedColor || 'স্ট্যান্ডার্ড',
       quantity: lead.quantity || 1,
-      hasOrderBump: lead.hasOrderBump || false,
+      hasOrderBump: false,
       grandTotal: lead.estimatedTotal || ((lead.product?.price || 0) * (lead.quantity || 1) + 70),
       date: formattedDate,
       time: formattedTime,
@@ -360,6 +380,7 @@ export default function App() {
       } else {
         return [...prev, {
           id: product.id,
+          slug: product.slug || product.id,
           title: product.title,
           price: product.price,
           image: product.image,
@@ -387,10 +408,19 @@ export default function App() {
     showToast('পণ্যটি কার্ট থেকে মুছে ফেলা হয়েছে', 'info');
   };
 
-  // Open 1-Click Fast Cash on Delivery Order Modal
-  const handleOpenOrderModal = (product) => {
-    setSelectedProductForOrder(product);
-    setIsOrderModalOpen(true);
+  // Route ALL Order buttons directly to that product's Dedicated Ordering Page (/checkout/:slug)
+  const handleOpenOrderPage = (product) => {
+    if (!product) return;
+    const slug = product.slug || product.id;
+    const sizeParam = product.selectedSize || product.sizes?.[0] || 'Standard';
+    const colorParam =
+      product.selectedColor ||
+      product.colors?.[0]?.name ||
+      (typeof product.colors?.[0] === 'string' ? product.colors[0] : 'Standard');
+    const qtyParam = product.quantity || 1;
+    navigateTo(
+      `/checkout/${slug}?size=${encodeURIComponent(sizeParam)}&color=${encodeURIComponent(colorParam)}&qty=${qtyParam}&bundle=${qtyParam <= 3 ? qtyParam : 1}`
+    );
   };
 
   // Navigate to Dedicated Single Product Page /product/:slug
@@ -399,28 +429,23 @@ export default function App() {
     navigateTo(`/product/${slug}`);
   };
 
-  // Checkout whole cart as an order
+  // Checkout whole cart via Dedicated Ordering Page
   const handleCheckoutCart = () => {
     if (cartItems.length === 0) return;
     setIsCartOpen(false);
-    const comboProduct = {
-      id: 'cart-combo',
-      title: `কার্ট অর্ডার (${cartItems.length} টি পণ্য)`,
-      price: cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-      image: cartItems[0].image,
-      selectedSize: 'মাল্টিপল',
-      selectedColor: 'মাল্টিপল',
-      quantity: 1,
-      categoryName: 'কার্ট চেকআউট'
-    };
-    setSelectedProductForOrder(comboProduct);
-    setIsOrderModalOpen(true);
+    navigateTo('/checkout/cart-combo');
   };
 
-  // When order is completed
+  // When order is completed (persists to both state and backend database)
   const handleOrderSuccess = (newOrder) => {
     setOrders(prev => [newOrder, ...prev]);
     showToast(`অর্ডার #${newOrder.orderId} সফলভাবে সম্পন্ন হয়েছে!`);
+
+    fetch('/api/store/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newOrder)
+    }).catch(() => {});
   };
 
   // Admin updates order status
@@ -467,13 +492,39 @@ export default function App() {
       return o;
     }));
     showToast(`🎉 "${upsellItem.title?.slice(0, 24)}..." আপনার অর্ডারে যুক্ত হয়েছে (ফ্রি ডেলিভারি)!`);
+
+    fetch(`/api/store/orders/${orderId}/upsell`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ upsellItem })
+    }).catch(() => {});
+  };
+
+  // Helper to resolve cart-combo or individual product by slug/id
+  const resolveProductBySlug = (slug) => {
+    if (slug === 'cart-combo' && cartItems.length > 0) {
+      return {
+        id: 'cart-combo',
+        slug: 'cart-combo',
+        title: `কার্ট অর্ডার (${cartItems.length} টি পণ্য)`,
+        price: cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        image: cartItems[0].image,
+        sizes: ['মাল্টিপল'],
+        colors: [{ name: 'মাল্টিপল', hex: '#0f172a' }],
+        selectedSize: 'মাল্টিপল',
+        selectedColor: 'মাল্টিপল',
+        quantity: 1,
+        categoryName: 'কার্ট চেকআউট'
+      };
+    }
+    return productsList.find(p => p.slug === slug || p.id === slug) || getProductBySlug(slug) || productsList[0];
   };
 
   // =========================================================================
   // ROUTING DISPATCH:
-  //   0. /admin (Dedicated Secure Admin Panel Route)
-  //   1. /offer/:slug & /product/:slug (Ad Landing Page)
-  //   2. /checkout/:slug (Dedicated Checkout Page)
+  //   0. /admin (Dedicated Secure Admin Portal with Login Wall)
+  //   1. /offer/:slug & /product/:slug (Product Page + Relevant Products)
+  //   2. /checkout/:slug (Dedicated Per-Product Ordering Page)
   //   3. /thank-you/:slug/:orderId (Dedicated Thank You & Purchase Confirmation)
   // =========================================================================
   const isAdminRoute = currentPath === '/admin' || currentPath.startsWith('/admin/');
@@ -482,23 +533,22 @@ export default function App() {
   const isProductRoute = currentPath.startsWith('/product/');
   const isOfferRoute = currentPath.startsWith('/offer/');
 
-  // ROUTE 0: Dedicated Secure Admin Page (/admin)
+  // ROUTE 0: Dedicated Secure Admin Portal (/admin)
   if (isAdminRoute) {
     return (
       <div className="app-layout font-sans min-h-screen bg-slate-950">
-        <AdminModal
-          isOpen={true}
-          onClose={() => navigateTo('/')}
+        <AdminPage
           orders={orders}
+          onSetOrders={setOrders}
           onUpdateOrderStatus={handleUpdateOrderStatus}
           onUpdateCourierInfo={handleUpdateCourierInfo}
-          socialProofEnabled={socialProofEnabled}
-          onToggleSocialProof={setSocialProofEnabled}
           allProducts={productsList}
           onUpdateProducts={handleUpdateProducts}
           onNavigateToProduct={(p) => navigateTo(`/product/${p.slug || p.id}`)}
+          onBackToStore={() => navigateTo('/')}
           showToast={showToast}
           abandonedLeads={abandonedLeads}
+          onSetAbandonedLeads={setAbandonedLeads}
           onConvertLeadToOrder={handleConvertLeadToOrder}
           onDeleteLead={handleDeleteLead}
           pixelConfig={pixelConfig}
@@ -518,10 +568,10 @@ export default function App() {
     );
   }
 
-  // ROUTE 2: Dedicated Product Order / Checkout Page (/checkout/:slug)
+  // ROUTE 2: Dedicated Per-Product Ordering Page (/checkout/:slug)
   if (isCheckoutRoute) {
     const slug = currentPath.replace(/^\/checkout\//, '').replace(/\/.*$/, '');
-    const checkoutProduct = productsList.find(p => p.slug === slug || p.id === slug) || getProductBySlug(slug) || productsList[0];
+    const checkoutProduct = resolveProductBySlug(slug);
 
     return (
       <div className="app-layout font-sans">
@@ -554,7 +604,7 @@ export default function App() {
     const parts = cleanPath.split('/');
     const slug = parts[0] || '';
     const routeOrderId = parts[1] || '';
-    const thankYouProduct = productsList.find(p => p.slug === slug || p.id === slug) || getProductBySlug(slug) || productsList[0];
+    const thankYouProduct = resolveProductBySlug(slug);
 
     return (
       <div className="app-layout font-sans">
@@ -585,10 +635,10 @@ export default function App() {
   let activeRouteProduct = null;
   if (isProductRoute) {
     const slug = currentPath.replace(/^\/product\//, '').replace(/\/.*$/, '');
-    activeRouteProduct = productsList.find(p => p.slug === slug || p.id === slug) || getProductBySlug(slug) || productsList[0];
+    activeRouteProduct = resolveProductBySlug(slug);
   } else if (isOfferRoute) {
     const slug = currentPath.replace(/^\/offer\//, '').replace(/\/.*$/, '');
-    activeRouteProduct = productsList.find(p => p.slug === slug || p.id === slug) || getProductBySlug(slug) || productsList[0];
+    activeRouteProduct = resolveProductBySlug(slug);
   }
 
   if (activeRouteProduct) {
@@ -600,17 +650,15 @@ export default function App() {
           <TopBar />
         )}
 
-        {/* Dedicated Single-Product Ad Landing Page with Embedded Checkout */}
+        {/* Dedicated Single-Product Page with Relevant Products Showcase */}
         <ProductPage
           product={activeRouteProduct}
+          allProducts={productsList}
           isAdMode={isOfferRoute}
           onBackToHome={() => navigateTo('/')}
-          onOrderSuccess={handleOrderSuccess}
           onAddToCart={handleAddToCart}
-          cartCount={totalCartCount}
-          onSaveDraftLead={handleSaveDraftLead}
-          onCleanupDraftLead={handleCleanupDraftLead}
-          onCheckDuplicateOrder={handleCheckDuplicateOrder}
+          onViewProduct={handleViewProduct}
+          onOrderProduct={handleOpenOrderPage}
           onNavigateTo={navigateTo}
         />
 
@@ -667,7 +715,7 @@ export default function App() {
             setActiveCategory(catId);
             setSearchTerm('');
           }}
-          onOrderProduct={handleOpenOrderModal}
+          onOrderProduct={handleOpenOrderPage}
           onViewProduct={handleViewProduct}
         />
 
@@ -677,7 +725,7 @@ export default function App() {
         {/* 5. Flash Sale with Live Timer */}
         <FlashSale
           products={productsList}
-          onOrderProduct={handleOpenOrderModal}
+          onOrderProduct={handleOpenOrderPage}
           onAddToCart={handleAddToCart}
           onQuickView={handleViewProduct}
           onViewAll={() => {
@@ -696,7 +744,7 @@ export default function App() {
             setActiveCategory(catId);
             setSearchTerm('');
           }}
-          onOrderProduct={handleOpenOrderModal}
+          onOrderProduct={handleOpenOrderPage}
           onAddToCart={handleAddToCart}
           onQuickView={handleViewProduct}
           searchTerm={searchTerm}
@@ -736,7 +784,7 @@ export default function App() {
         onCheckoutCart={handleCheckoutCart}
       />
 
-      {/* Rich Daraz-Style Product Detail View Modal */}
+      {/* Rich Product Detail View Modal */}
       <ProductDetailModal
         isOpen={isProductDetailOpen}
         product={detailProduct}
@@ -744,21 +792,10 @@ export default function App() {
         onClose={() => setIsProductDetailOpen(false)}
         onOrderNow={(item) => {
           setIsProductDetailOpen(false);
-          handleOpenOrderModal(item);
+          handleOpenOrderPage(item);
         }}
         onAddToCart={handleAddToCart}
         onSelectProduct={(p) => setDetailProduct(p)}
-      />
-
-      {/* 1-Click Fast COD Checkout Modal & Printable Cash Memo */}
-      <CheckoutModal
-        isOpen={isOrderModalOpen}
-        product={selectedProductForOrder}
-        onClose={() => setIsOrderModalOpen(false)}
-        onOrderSuccess={handleOrderSuccess}
-        onSaveDraftLead={handleSaveDraftLead}
-        onCleanupDraftLead={handleCleanupDraftLead}
-        onCheckDuplicateOrder={handleCheckDuplicateOrder}
       />
 
       {/* Visual Meta & TikTok Pixel Event Debugger Toast */}
