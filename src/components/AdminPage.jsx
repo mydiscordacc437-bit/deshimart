@@ -27,8 +27,10 @@ const CATEGORY_LABELS = {
   'watches-accessories': 'Watches & Accessories',
   'gadgets-electronics': 'Gadgets & Electronics',
   'gadgets': 'Gadgets & Electronics',
-  'home-lifestyle': 'Home & Lifestyle',
-  'footwear': 'Footwear'
+  'home-lifestyle': 'Home & Kitchen',
+  'home-kitchen': 'Home & Kitchen',
+  'footwear': 'Footwear & Shoes',
+  'shoes': 'Footwear & Shoes'
 };
 
 export default function AdminPage({
@@ -124,11 +126,13 @@ export default function AdminPage({
   });
   const [securityMsg, setSecurityMsg] = useState({ text: '', type: '' });
 
-  // Purge any legacy cached tokens or credentials on mount and invalidate session on page close
+  // Purge any legacy cached tokens or sensitive data on mount and invalidate session on page close
   useEffect(() => {
     try {
       localStorage.removeItem('deshimart_admin_token');
       localStorage.removeItem('deshimart_admin_creds_fallback');
+      localStorage.removeItem('deshimart_orders');
+      localStorage.removeItem('deshimart_abandoned_leads');
       sessionStorage.removeItem('deshimart_admin_token');
     } catch (_e) {
       // Ignore storage errors
@@ -169,6 +173,19 @@ export default function AdminPage({
     }
   }, [pixelConfig]);
 
+  // Merge backend and local orders by orderId (newest timestamp wins)
+  const mergeOrdersList = (incoming = [], current = []) => {
+    const map = new Map();
+    [...incoming, ...current].forEach(item => {
+      if (!item || !item.orderId) return;
+      const existing = map.get(item.orderId);
+      if (!existing || (item.timestamp || 0) >= (existing.timestamp || 0)) {
+        map.set(item.orderId, item);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  };
+
   // Refresh orders from backend helper
   const refreshAdminBootstrap = async (tokenToUse) => {
     const activeToken = tokenToUse || tokenRef.current || authToken;
@@ -182,7 +199,9 @@ export default function AdminPage({
       });
       if (bootRes.ok) {
         const bootData = await bootRes.json();
-        if (Array.isArray(bootData.orders) && onSetOrders) onSetOrders(bootData.orders);
+        if (Array.isArray(bootData.orders) && onSetOrders) {
+          onSetOrders(prev => mergeOrdersList(bootData.orders, Array.isArray(prev) ? prev : orders));
+        }
         if (Array.isArray(bootData.abandonedLeads) && onSetAbandonedLeads) onSetAbandonedLeads(bootData.abandonedLeads);
         if (Array.isArray(bootData.customProducts) && bootData.customProducts.length > 0 && onUpdateProducts) {
           onUpdateProducts(bootData.customProducts, true);
@@ -193,7 +212,7 @@ export default function AdminPage({
     }
   };
 
-  // Handle Login Submission (strictly verified by backend)
+  // Handle Login Submission (100% server-authoritative via /api/admin/login)
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoginError('');

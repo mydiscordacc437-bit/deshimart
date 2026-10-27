@@ -63,11 +63,22 @@ export default function ThankYouPage({
     };
   });
 
-  // Keep synced if orders update (e.g. when an upsell is added)
+  // Keep synced if orders update or fetch from backend if page was refreshed directly
   useEffect(() => {
     const found = orders.find(o => o.orderId === orderId);
     if (found) {
       setCurrentOrder(found);
+      return;
+    }
+    if (orderId) {
+      fetch(`/api/store/orders/${encodeURIComponent(orderId)}`)
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => {
+          if (data?.order) {
+            setCurrentOrder(data.order);
+          }
+        })
+        .catch(() => {});
     }
   }, [orders, orderId]);
 
@@ -164,8 +175,6 @@ export default function ThankYouPage({
 
     if (showToast) {
       showToast(`🎉 "${upsellItem.title.slice(0, 20)}..." আপনার অর্ডারে যুক্ত হয়েছে (ফ্রি ডেলিভারি)!`);
-    } else {
-      alert(`"${upsellItem.title}" সফলভাবে আপনার পার্সেল এ যোগ করা হয়েছে!`);
     }
   };
 
@@ -432,7 +441,7 @@ export default function ThankYouPage({
         </div>
 
         {/* 4. Action Buttons (Print Hidden) */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 print:hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 print:hidden">
           
           {/* Download / Print Receipt */}
           <button
@@ -442,9 +451,6 @@ export default function ThankYouPage({
           >
             <span>📥 ক্যাশ মেমো ডাউনলোড / প্রিন্ট</span>
           </button>
-
-          {/* Live Order Tracker */}
-          
 
           {/* Urgent WhatsApp Support */}
           <a

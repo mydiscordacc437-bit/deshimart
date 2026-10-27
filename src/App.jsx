@@ -123,15 +123,33 @@ export default function App() {
     return initialProducts;
   });
 
-  // Bootstrap public store settings, orders, & custom catalog from backend
+  // Helper to merge orders by orderId without losing newly created orders on serverless cold starts
+  const mergeOrdersList = (incoming = [], current = []) => {
+    const map = new Map();
+    [...incoming, ...current].forEach(item => {
+      if (!item || !item.orderId) return;
+      const existing = map.get(item.orderId);
+      if (!existing || (item.timestamp || 0) >= (existing.timestamp || 0)) {
+        map.set(item.orderId, item);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  };
+
+  // Bootstrap public store catalog & pixel config from backend (orders/leads require /admin auth)
   useEffect(() => {
+    try {
+      // Purge any legacy public storage of customer orders or leads for privacy
+      localStorage.removeItem('deshimart_orders');
+      localStorage.removeItem('deshimart_abandoned_leads');
+    } catch (_e) {
+      // Ignore storage error
+    }
+
     fetch('/api/store/bootstrap')
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
         if (!data) return;
-        if (Array.isArray(data.orders) && data.orders.length > 0) {
-          setOrders(data.orders);
-        }
         if (Array.isArray(data.customProducts) && data.customProducts.length > 0) {
           setProductsList(data.customProducts);
         }
@@ -142,6 +160,19 @@ export default function App() {
       .catch(() => {
         // Offline or initial fallback
       });
+
+    // Cross-tab sync for custom products only
+    const handleStorageSync = (e) => {
+      try {
+        if (e.key === 'deshimart_custom_products' && e.newValue) {
+          setProductsList(JSON.parse(e.newValue));
+        }
+      } catch (_err) {
+        // Ignore parse error
+      }
+    };
+    window.addEventListener('storage', handleStorageSync);
+    return () => window.removeEventListener('storage', handleStorageSync);
   }, []);
 
   // Handle product updates or new B-Bazar imports
@@ -178,6 +209,7 @@ export default function App() {
   const [cartItems, setCartItems] = useState([
     {
       id: "fs-1",
+      cartKey: "fs-1-L (40)-Royal Blue (রয়েল ব্লু)",
       title: "হ্যান্ডলুম প্রিমিয়াম কটন পাঞ্জাবি - রয়েল ব্লু",
       price: 850,
       image: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?auto=format&fit=crop&w=600&q=80",
@@ -187,6 +219,7 @@ export default function App() {
     },
     {
       id: "fs-2",
+      cartKey: "fs-2-41-Chocolate Brown (চকলেট ব্রাউন)",
       title: "মেনস ক্লাসিক ফর্মাল লেদার লোফার সু (Premium Casual Loafer)",
       price: 690,
       image: "https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&w=600&q=80",
@@ -206,62 +239,9 @@ export default function App() {
 
   const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
 
-  // Live Orders State (stored and synced)
-  const [orders, setOrders] = useState(() => {
-    try {
-      const saved = localStorage.getItem('deshimart_orders');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
-    }
-    return initialSeedOrders;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('deshimart_orders', JSON.stringify(orders));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [orders]);
-
-  // Real-Time Abandoned Leads State
-  const [abandonedLeads, setAbandonedLeads] = useState(() => {
-    try {
-      const saved = localStorage.getItem('deshimart_abandoned_leads');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
-    }
-    return [
-      {
-        leadId: 'LEAD-01823456789-bbz-102',
-        customerName: 'মেহজাবিন চৌধুরী',
-        customerPhone: '01823456789',
-        customerAddress: 'বাড়ি #১৫, জিইসি মোড়, চট্টগ্রাম',
-        operator: 'Robi',
-        product: initialProducts[1] || initialProducts[0],
-        selectedSize: '38',
-        selectedColor: 'মারুন',
-        quantity: 1,
-        hasOrderBump: false,
-        estimatedTotal: 1040,
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        date: '১৭ অক্টোবর, ২০২৬',
-        time: '০৭:১৫ PM',
-        status: 'অসম্পূর্ণ (Abandoned Lead)',
-        source: 'Facebook Ad Funnel'
-      }
-    ];
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('deshimart_abandoned_leads', JSON.stringify(abandonedLeads));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [abandonedLeads]);
+  // Ephemeral in-memory Orders & Abandoned Leads (loaded from /api/admin/bootstrap upon admin login)
+  const [orders, setOrders] = useState(initialSeedOrders);
+  const [abandonedLeads, setAbandonedLeads] = useState([]);
 
   // Pixel Configuration State
   const [pixelConfig, setPixelConfig] = useState(() => getPixelConfig());
@@ -381,22 +361,25 @@ export default function App() {
 
   // Add to cart with variant specifications
   const handleAddToCart = (product) => {
-    const itemKey = `${product.id}-${product.selectedSize || 'def'}-${product.selectedColor || 'def'}`;
+    const resolvedSize = product.selectedSize || product.sizes?.[0] || 'স্ট্যান্ডার্ড';
+    const resolvedColor = product.selectedColor || product.colors?.[0]?.name || 'স্ট্যান্ডার্ড';
+    const itemKey = `${product.id}-${resolvedSize}-${resolvedColor}`;
     setCartItems(prev => {
-      const existing = prev.find(i => `${i.id}-${i.selectedSize || 'def'}-${i.selectedColor || 'def'}` === itemKey);
+      const existing = prev.find(i => (i.cartKey || `${i.id}-${i.selectedSize}-${i.selectedColor}`) === itemKey);
       if (existing) {
-        return prev.map(i => `${i.id}-${i.selectedSize || 'def'}-${i.selectedColor || 'def'}` === itemKey 
-          ? { ...i, quantity: i.quantity + (product.quantity || 1) } 
+        return prev.map(i => (i.cartKey || `${i.id}-${i.selectedSize}-${i.selectedColor}`) === itemKey
+          ? { ...i, cartKey: itemKey, quantity: i.quantity + (product.quantity || 1) }
           : i);
       } else {
         return [...prev, {
           id: product.id,
+          cartKey: itemKey,
           slug: product.slug || product.id,
           title: product.title,
           price: product.price,
           image: product.image,
-          selectedSize: product.selectedSize || product.sizes?.[0] || 'স্ট্যান্ডার্ড',
-          selectedColor: product.selectedColor || product.colors?.[0]?.name || 'স্ট্যান্ডার্ড',
+          selectedSize: resolvedSize,
+          selectedColor: resolvedColor,
           quantity: product.quantity || 1
         }];
       }
@@ -405,17 +388,23 @@ export default function App() {
   };
 
   // Update cart item quantity
-  const handleUpdateQuantity = (productId, newQuantity) => {
+  const handleUpdateQuantity = (itemKeyOrId, newQuantity) => {
     if (newQuantity <= 0) {
-      handleRemoveFromCart(productId);
+      handleRemoveFromCart(itemKeyOrId);
       return;
     }
-    setCartItems(prev => prev.map(item => item.id === productId ? { ...item, quantity: newQuantity } : item));
+    setCartItems(prev => prev.map(item => {
+      const key = item.cartKey || `${item.id}-${item.selectedSize}-${item.selectedColor}`;
+      return (key === itemKeyOrId || item.id === itemKeyOrId) ? { ...item, quantity: newQuantity } : item;
+    }));
   };
 
   // Remove from cart
-  const handleRemoveFromCart = (productId) => {
-    setCartItems(prev => prev.filter(i => i.id !== productId));
+  const handleRemoveFromCart = (itemKeyOrId) => {
+    setCartItems(prev => prev.filter(item => {
+      const key = item.cartKey || `${item.id}-${item.selectedSize}-${item.selectedColor}`;
+      return key !== itemKeyOrId && item.id !== itemKeyOrId;
+    }));
     showToast('পণ্যটি কার্ট থেকে মুছে ফেলা হয়েছে', 'info');
   };
 

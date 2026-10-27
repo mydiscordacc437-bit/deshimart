@@ -50,7 +50,12 @@ export default function ProductCard({
           src={image} 
           alt={title} 
           className="product-img" 
-          loading="lazy" 
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80';
+          }}
         />
         {stockLeft && stockLeft < 15 && (
           <div className="badge-low-stock">
@@ -63,7 +68,7 @@ export default function ProductCard({
       <div className="product-details">
         
         {/* Category tag */}
-        <span className="product-category-tag">{categoryName}</span>
+        <span className="product-category-tag">{categoryName || 'স্পেশাল কালেকশন'}</span>
 
         {/* Title per wireframe */}
         <h3 className="product-title" onClick={() => onQuickView(product)} title={title}>
@@ -84,11 +89,11 @@ export default function ProductCard({
 
         {/* Star Rating: ★ 4.8 (120) */}
         <div className="product-rating-row">
-          <div className="stars-box" aria-label={`রেটিং ${rating} তারকা`}>
+          <div className="stars-box" aria-label={`রেটিং ${rating || 4.8} তারকা`}>
             <span className="star-icon">★</span>
-            <span className="rating-val num">{rating.toFixed(1)}</span>
+            <span className="rating-val num">{Number(rating || 4.8).toFixed(1)}</span>
           </div>
-          <span className="reviews-count num">({reviewsCount})</span>
+          <span className="reviews-count num">({reviewsCount || 24})</span>
           <span className="cod-available-tag">ক্যাশ অন ডেলিভারি</span>
         </div>
 

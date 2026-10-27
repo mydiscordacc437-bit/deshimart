@@ -14,10 +14,30 @@ const DATA_DIR = path.join(__dirname, 'data');
 const DB_PATH = path.join(DATA_DIR, 'store-db.json');
 const INITIAL_PRODUCTS_PATH = path.join(__dirname, 'src', 'data', 'products.json');
 
-const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours max in-memory session lifetime
+const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours max session lifetime
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes rate-limit window
+const MAX_LOGIN_ATTEMPTS = 5;
+
+const loginAttempts = new Map<string, { count: number; firstAttempt: number; lockedUntil: number }>();
 
 function hashPassword(password: string, salt = 'deshimart_salt_2026'): string {
-  return crypto.scryptSync(password, salt, 64).toString('hex');
+  return crypto.scryptSync(String(password), salt, 64).toString('hex');
+}
+
+function safeCompareHex(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(String(a), 'hex');
+    const bufB = Buffer.from(String(b), 'hex');
+    if (bufA.length !== bufB.length || bufA.length === 0) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch (_e) {
+    return false;
+  }
+}
+
+function sanitizeText(val: unknown, maxLen = 300): string {
+  if (typeof val !== 'string') return '';
+  return val.replace(/[<>]/g, '').trim().slice(0, maxLen);
 }
 
 function loadInitialProducts(): any[] {
@@ -182,6 +202,15 @@ function writeDb(db: StoreDatabase): void {
   }
 }
 
+// Security headers middleware
+function securityHeaders(_req: express.Request, res: express.Response, next: express.NextFunction) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+}
+
 // Strict no-cache middleware for all /api/admin routes
 function noCacheAdmin(_req: express.Request, res: express.Response, next: express.NextFunction) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -194,7 +223,7 @@ function noCacheAdmin(_req: express.Request, res: express.Response, next: expres
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-  if (!token) {
+  if (!token || token.length < 32) {
     return res.status(401).json({ error: 'Authentication required. Please sign in.' });
   }
   const db = readDb();
@@ -212,18 +241,24 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
 
 async function startServer() {
   const app = express();
-  app.use(express.json({ limit: '5mb' }));
+  app.disable('x-powered-by');
+  app.use(securityHeaders);
+  app.use(express.json({ limit: '2mb' }));
   app.use('/api/admin', noCacheAdmin);
 
   // =========================================================================
   // 1. PUBLIC STOREFRONT API ROUTES (/api/store/*)
+  //    Never exposes customer orders, leads, or secret access tokens publicly.
   // =========================================================================
   app.get('/api/store/bootstrap', (_req, res) => {
     const db = readDb();
     res.json({
-      orders: db.orders || [],
       customProducts: db.customProducts,
-      pixelConfig: db.pixelConfig
+      pixelConfig: {
+        fbPixelId: db.pixelConfig?.fbPixelId || '',
+        tiktokPixelId: db.pixelConfig?.tiktokPixelId || '',
+        isDebuggerActive: Boolean(db.pixelConfig?.isDebuggerActive)
+      }
     });
   });
 
@@ -233,15 +268,18 @@ async function startServer() {
       return res.status(400).json({ error: 'Invalid order details.' });
     }
     const db = readDb();
-    const orderId = newOrder.orderId || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const orderId = sanitizeText(newOrder.orderId, 40) || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const savedOrder = {
       ...newOrder,
       orderId,
+      customerName: sanitizeText(newOrder.customerName, 120) || 'Customer',
+      customerPhone: sanitizeText(newOrder.customerPhone, 30),
+      customerAddress: sanitizeText(newOrder.customerAddress, 300),
       timestamp: Date.now()
     };
-    db.orders = [savedOrder, ...(db.orders || [])];
+    db.orders = [savedOrder, ...(db.orders || []).filter((o: any) => o.orderId !== orderId)];
     db.abandonedLeads = (db.abandonedLeads || []).filter(
-      (l: any) => l.customerPhone !== newOrder.customerPhone
+      (l: any) => l.customerPhone !== savedOrder.customerPhone
     );
     writeDb(db);
     res.status(201).json({ success: true, order: savedOrder });
@@ -249,7 +287,10 @@ async function startServer() {
 
   app.post('/api/store/orders/:orderId/upsell', (req, res) => {
     const { orderId } = req.params;
-    const { upsellItem } = req.body;
+    const { upsellItem } = req.body || {};
+    if (!upsellItem || typeof upsellItem !== 'object') {
+      return res.status(400).json({ error: 'Invalid upsell item.' });
+    }
     const db = readDb();
     let updatedOrder = null;
     db.orders = (db.orders || []).map((o: any) => {
@@ -275,13 +316,19 @@ async function startServer() {
     if (!draftLead || !draftLead.customerPhone) {
       return res.status(400).json({ error: 'Invalid lead data.' });
     }
+    const sanitizedLead = {
+      ...draftLead,
+      customerName: sanitizeText(draftLead.customerName, 120),
+      customerPhone: sanitizeText(draftLead.customerPhone, 30),
+      customerAddress: sanitizeText(draftLead.customerAddress, 300)
+    };
     const db = readDb();
     const leads = db.abandonedLeads || [];
-    const existingIdx = leads.findIndex((l: any) => l.customerPhone === draftLead.customerPhone);
+    const existingIdx = leads.findIndex((l: any) => l.customerPhone === sanitizedLead.customerPhone);
     if (existingIdx >= 0) {
-      leads[existingIdx] = { ...leads[existingIdx], ...draftLead };
+      leads[existingIdx] = { ...leads[existingIdx], ...sanitizedLead };
     } else {
-      leads.unshift(draftLead);
+      leads.unshift(sanitizedLead);
     }
     db.abandonedLeads = leads;
     writeDb(db);
@@ -302,6 +349,17 @@ async function startServer() {
   // 2. ADMIN AUTHENTICATION ROUTES (/api/admin/login, /verify, /logout)
   // =========================================================================
   app.post('/api/admin/login', (req, res) => {
+    const clientIp = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'local');
+    const now = Date.now();
+    const record = loginAttempts.get(clientIp);
+
+    if (record && record.lockedUntil > now) {
+      const waitMinutes = Math.ceil((record.lockedUntil - now) / 60000);
+      return res.status(429).json({
+        error: `Too many failed login attempts. Try again in ${waitMinutes} minute(s).`
+      });
+    }
+
     const { identifier, password } = req.body || {};
     if (!identifier || !password) {
       return res.status(400).json({ error: 'Please enter both username and password.' });
@@ -314,13 +372,24 @@ async function startServer() {
       cleanId === db.adminUser.email.toLowerCase();
 
     const inputHash = hashPassword(String(password));
-    if (!validUser || inputHash !== db.adminUser.passwordHash) {
+    const validPass = safeCompareHex(inputHash, db.adminUser.passwordHash);
+
+    if (!validUser || !validPass) {
+      const current = record && now - record.firstAttempt < LOGIN_WINDOW_MS
+        ? { count: record.count + 1, firstAttempt: record.firstAttempt, lockedUntil: 0 }
+        : { count: 1, firstAttempt: now, lockedUntil: 0 };
+
+      if (current.count >= MAX_LOGIN_ATTEMPTS) {
+        current.lockedUntil = now + LOGIN_WINDOW_MS;
+      }
+      loginAttempts.set(clientIp, current);
       return res.status(401).json({ error: 'Invalid username or password.' });
     }
 
+    loginAttempts.delete(clientIp);
     const token = crypto.randomBytes(32).toString('hex');
+
     // Keep only fresh sessions
-    const now = Date.now();
     const activeSessions: Record<string, { username: string; createdAt: number }> = {};
     for (const [k, v] of Object.entries(db.sessions || {})) {
       if (now - v.createdAt < SESSION_TTL_MS) {
@@ -375,15 +444,15 @@ async function startServer() {
     const { currentPassword, newUsername, newEmail, newPassword } = req.body || {};
     const db = readDb();
 
-    if (!currentPassword || hashPassword(String(currentPassword)) !== db.adminUser.passwordHash) {
+    if (!currentPassword || !safeCompareHex(hashPassword(String(currentPassword)), db.adminUser.passwordHash)) {
       return res.status(400).json({ error: 'Current password is incorrect.' });
     }
 
     if (newUsername && String(newUsername).trim().length >= 3) {
-      db.adminUser.username = String(newUsername).trim();
+      db.adminUser.username = sanitizeText(newUsername, 50);
     }
     if (newEmail && String(newEmail).trim().includes('@')) {
-      db.adminUser.email = String(newEmail).trim();
+      db.adminUser.email = sanitizeText(newEmail, 100);
     }
     if (newPassword && String(newPassword).length >= 6) {
       db.adminUser.passwordHash = hashPassword(String(newPassword));
@@ -423,15 +492,18 @@ async function startServer() {
       return res.status(400).json({ error: 'Customer name and phone are required.' });
     }
     const db = readDb();
-    const orderId = manualOrder.orderId || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const orderId = sanitizeText(manualOrder.orderId, 40) || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const savedOrder = {
       ...manualOrder,
       orderId,
+      customerName: sanitizeText(manualOrder.customerName, 120),
+      customerPhone: sanitizeText(manualOrder.customerPhone, 30),
+      customerAddress: sanitizeText(manualOrder.customerAddress, 300),
       timestamp: Date.now()
     };
-    db.orders = [savedOrder, ...(db.orders || [])];
+    db.orders = [savedOrder, ...(db.orders || []).filter((o: any) => o.orderId !== orderId)];
     db.abandonedLeads = (db.abandonedLeads || []).filter(
-      (l: any) => l.customerPhone !== manualOrder.customerPhone
+      (l: any) => l.customerPhone !== savedOrder.customerPhone
     );
     writeDb(db);
     res.status(201).json({ success: true, order: savedOrder, orders: db.orders });
@@ -504,6 +576,8 @@ async function startServer() {
       courier: 'Steadfast Courier',
       consignmentId: `STF-${Math.floor(100000 + Math.random() * 900000)}`,
       source: 'Recovered Cart',
+      orderedFromPath: `/checkout/${lead.product?.slug || lead.product?.id || ''}`,
+      productPagePath: `/product/${lead.product?.slug || lead.product?.id || ''}`,
       timestamp: Date.now()
     };
 

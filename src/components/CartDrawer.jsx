@@ -50,48 +50,67 @@ export default function CartDrawer({
         {/* Cart Items List */}
         {cartItems.length > 0 ? (
           <div className="drawer-items-list">
-            {cartItems.map((item) => (
-              <div key={item.id} className="cart-item-row">
-                <img src={item.image} alt={item.title} className="cart-item-img" />
-                <div className="cart-item-info">
-                  <h4 className="cart-item-title">{item.title}</h4>
-                  <div className="cart-item-price num">
-                    {siteConfig.currencySymbol}{item.price}
-                  </div>
-                  
-                  {/* Quantity controls */}
-                  <div className="cart-qty-row">
-                    <div className="qty-pill">
+            {cartItems.map((item) => {
+              const itemKey = item.cartKey || `${item.id}-${item.selectedSize || 'def'}-${item.selectedColor || 'def'}`;
+              return (
+                <div key={itemKey} className="cart-item-row">
+                  <img
+                    src={item.image}
+                    alt={item.title}
+                    className="cart-item-img"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=400&q=80';
+                    }}
+                  />
+                  <div className="cart-item-info">
+                    <h4 className="cart-item-title">{item.title}</h4>
+                    {(item.selectedSize || item.selectedColor) && (
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {item.selectedSize && <span>সাইজ: {item.selectedSize}</span>}
+                        {item.selectedSize && item.selectedColor && <span> • </span>}
+                        {item.selectedColor && <span>কালার: {item.selectedColor}</span>}
+                      </div>
+                    )}
+                    <div className="cart-item-price num">
+                      {siteConfig.currencySymbol}{item.price}
+                    </div>
+                    
+                    {/* Quantity controls */}
+                    <div className="cart-qty-row">
+                      <div className="qty-pill">
+                        <button 
+                          type="button" 
+                          className="qty-action-btn"
+                          onClick={() => onUpdateQuantity(itemKey, item.quantity - 1)}
+                          aria-label="কমান"
+                        >
+                          -
+                        </button>
+                        <span className="qty-number num">{item.quantity}</span>
+                        <button 
+                          type="button" 
+                          className="qty-action-btn"
+                          onClick={() => onUpdateQuantity(itemKey, item.quantity + 1)}
+                          aria-label="বাড়ান"
+                        >
+                          +
+                        </button>
+                      </div>
+
                       <button 
                         type="button" 
-                        className="qty-action-btn"
-                        onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                        aria-label="কমান"
+                        className="cart-item-remove-btn"
+                        onClick={() => onRemoveItem(itemKey)}
                       >
-                        -
-                      </button>
-                      <span className="qty-number num">{item.quantity}</span>
-                      <button 
-                        type="button" 
-                        className="qty-action-btn"
-                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                        aria-label="বাড়ান"
-                      >
-                        +
+                        মুছে ফেলুন
                       </button>
                     </div>
-
-                    <button 
-                      type="button" 
-                      className="cart-item-remove-btn"
-                      onClick={() => onRemoveItem(item.id)}
-                    >
-                      মুছে ফেলুন
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="empty-cart-state">

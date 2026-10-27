@@ -137,7 +137,8 @@ export default function HeroSection({
               <img 
                 src={slide.image} 
                 alt="Mega Dhamaka Offer" 
-                className="banner-hero-img" 
+                className="banner-hero-img"
+                referrerPolicy="no-referrer"
               />
               <div className="banner-float-tag">
                 <span className="float-percent">৫০% ছাড়</span>
@@ -189,7 +190,16 @@ export default function HeroSection({
             </div>
             
             <div className="deal-img-wrapper" onClick={() => onViewProduct(deal)}>
-              <img src={deal.image} alt={deal.title} className="deal-img" />
+              <img
+                src={deal.image}
+                alt={deal.title}
+                className="deal-img"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80';
+                }}
+              />
               <div className="deal-stock-bar-wrap">
                 <div className="stock-info-row">
                   <span>স্টক সীমিত</span>

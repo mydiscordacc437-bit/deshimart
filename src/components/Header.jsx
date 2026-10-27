@@ -17,8 +17,8 @@ export default function Header({
   // Filter matched products for instant auto-complete
   const filteredProducts = searchTerm.trim().length > 0 
     ? products.filter(p => 
-        p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.categoryName.toLowerCase().includes(searchTerm.toLowerCase())
+        (p.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.categoryName || '').toLowerCase().includes(searchTerm.toLowerCase())
       ).slice(0, 5)
     : [];
 
@@ -107,7 +107,16 @@ export default function Header({
                       setIsSearchOpen(false);
                     }}
                   >
-                    <img src={item.image} alt={item.title} className="dropdown-item-thumb" />
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="dropdown-item-thumb"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=400&q=80';
+                      }}
+                    />
                     <div className="dropdown-item-info">
                       <h4 className="dropdown-item-title">{item.title}</h4>
                       <div className="dropdown-item-meta">
