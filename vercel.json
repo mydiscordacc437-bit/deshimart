@@ -1,33 +1,35 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "headers": [
-    {
-      "source": "/admin(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/api/admin/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
-        }
-      ]
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
     },
     {
-      "source": "/((?!api/|assets/|.*\\..*).*)",
+      "source": "/admin",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/product/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/offer/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/checkout/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/thank-you/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]

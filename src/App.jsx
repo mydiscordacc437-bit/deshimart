@@ -88,15 +88,28 @@ const initialSeedOrders = [
 ];
 
 export default function App() {
-  // Client-side Routing Engine (tracks both pathname and query string)
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  // Client-side Routing Engine (tracks pathname and hash)
+  const [currentPath, setCurrentPath] = useState(() => {
+    if (window.location.hash === '#/admin' || window.location.hash.startsWith('#/admin/')) {
+      return '/admin';
+    }
+    return window.location.pathname;
+  });
 
   useEffect(() => {
-    const handlePopState = () => {
-      setCurrentPath(window.location.pathname);
+    const handleRouteChange = () => {
+      if (window.location.hash === '#/admin' || window.location.hash.startsWith('#/admin/')) {
+        setCurrentPath('/admin');
+      } else {
+        setCurrentPath(window.location.pathname);
+      }
     };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('popstate', handleRouteChange);
+    window.addEventListener('hashchange', handleRouteChange);
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+      window.removeEventListener('hashchange', handleRouteChange);
+    };
   }, []);
 
   const navigateTo = (url) => {
@@ -527,7 +540,12 @@ export default function App() {
   //   2. /checkout/:slug (Dedicated Per-Product Ordering Page)
   //   3. /thank-you/:slug/:orderId (Dedicated Thank You & Purchase Confirmation)
   // =========================================================================
-  const isAdminRoute = currentPath === '/admin' || currentPath.startsWith('/admin/');
+  const normalizedPath = currentPath.replace(/\/+$/, '') || '/';
+  const isAdminRoute =
+    normalizedPath === '/admin' ||
+    normalizedPath === '/admin.html' ||
+    normalizedPath === '/admin/index.html' ||
+    currentPath.startsWith('/admin/');
   const isCheckoutRoute = currentPath.startsWith('/checkout/');
   const isThankYouRoute = currentPath.startsWith('/thank-you/');
   const isProductRoute = currentPath.startsWith('/product/');
